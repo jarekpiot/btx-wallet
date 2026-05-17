@@ -31,17 +31,17 @@ jobs:
             artifact_arch: x86_64
             runner: ubuntu-24.04
             depends_host: x86_64-pc-linux-gnu
-            apt_packages: build-essential cmake curl make patch bison g++ pkgconf python3 xz-utils
+            apt_packages: build-essential cmake curl make patch bison g++ pkgconf python3 xz-utils librsvg2-bin imagemagick
           - artifact_os: windows
             artifact_arch: x86_64
             runner: ubuntu-24.04
             depends_host: x86_64-w64-mingw32
-            apt_packages: build-essential cmake curl make patch bison g++ pkgconf python3 xz-utils nsis g++-mingw-w64-x86-64-posix
+            apt_packages: build-essential cmake curl make patch bison g++ pkgconf python3 xz-utils librsvg2-bin imagemagick nsis g++-mingw-w64-x86-64-posix
           - artifact_os: macos
             artifact_arch: arm64
             runner: macos-14
             depends_host: arm64-apple-darwin
-            brew_packages: cmake pkgconf gnu-getopt coreutils
+            brew_packages: cmake pkgconf gnu-getopt coreutils librsvg imagemagick
 
     steps:
       - name: Checkout wallet repo
