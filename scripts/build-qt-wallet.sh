@@ -13,11 +13,20 @@ BTX_JOBS="${BTX_JOBS:-}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-WORK_DIR="${BTX_WORK_DIR:-${REPO_ROOT}/.work}"
-CORE_DIR="${BTX_CORE_DIR:-${WORK_DIR}/btx-core}"
-BUILD_ROOT="${BTX_BUILD_ROOT:-${WORK_DIR}/build}"
-STAGE_ROOT="${BTX_STAGE_ROOT:-${WORK_DIR}/stage}"
-ARTIFACT_DIR="${BTX_ARTIFACT_DIR:-${REPO_ROOT}/artifacts}"
+
+abs_path() {
+  case "$1" in
+    /*) printf '%s\n' "$1" ;;
+    [A-Za-z]:/*|[A-Za-z]:\\*) printf '%s\n' "$1" ;;
+    *) printf '%s/%s\n' "${REPO_ROOT}" "$1" ;;
+  esac
+}
+
+WORK_DIR="$(abs_path "${BTX_WORK_DIR:-.work}")"
+CORE_DIR="$(abs_path "${BTX_CORE_DIR:-${WORK_DIR}/btx-core}")"
+BUILD_ROOT="$(abs_path "${BTX_BUILD_ROOT:-${WORK_DIR}/build}")"
+STAGE_ROOT="$(abs_path "${BTX_STAGE_ROOT:-${WORK_DIR}/stage}")"
+ARTIFACT_DIR="$(abs_path "${BTX_ARTIFACT_DIR:-artifacts}")"
 
 log() {
   printf '==> %s\n' "$*"
