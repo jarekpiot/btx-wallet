@@ -58,6 +58,7 @@ jobs:
         run: |
           brew update
           brew install ${{ matrix.brew_packages }}
+          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
 
       - name: Build deterministic artifact pass 1
         env:
