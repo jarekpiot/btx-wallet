@@ -1,0 +1,22 @@
+# Build artifacts
+**/target/
+**/build/
+**/dist/
+artifacts/
+.work/
+*.exe
+*.app
+*.dmg
+*.deb
+*.rpm
+
+# Sensitive data
+*.wallet
+*.dat
+*.bundle
+**/wallet.dat
+*.log
+
+# OS junk
+.DS_Store
+Thumbs.db
