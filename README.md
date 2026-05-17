@@ -49,9 +49,10 @@ Phase 0 is built for the BTC, NEAR, and ZEC crowd: a familiar desktop wallet,
 private sends, post-quantum keys, and no telemetry.
 
 1. Extract the release archive.
-2. Copy `BTX-Wallet-Phase0/btx-pruned.conf` to your BTX data directory as
+2. Start with `BTX-Wallet-Phase0/launch-btx-qt-pruned.sh` on Linux/macOS or
+   `BTX-Wallet-Phase0\launch-btx-qt-pruned.cmd` on Windows.
+3. For a permanent config, copy `BTX-Wallet-Phase0/btx-pruned.conf` to your BTX data directory as
    `btx.conf`.
-3. Open `btx-qt`.
 4. Create a new wallet.
 5. Encrypt the wallet immediately.
 6. Back up the wallet using the official wallet backup flow.
@@ -66,9 +67,9 @@ BTX data directories:
 | macOS | `~/Library/Application Support/BTX/btx.conf` |
 | Windows | `%APPDATA%\BTX\btx.conf` |
 
-The included starter config uses `prune=4096`, `pruneduringinit=4096`, and
-`retainshieldedcommitmentindex=1` so first sync is practical while shielded
-wallet restarts remain fast.
+The included launchers and starter config use `prune=4096`,
+`pruneduringinit=4096`, and `retainshieldedcommitmentindex=1` so first sync is
+practical while shielded wallet restarts remain fast.
 
 See [docs/FIRST-RUN.md](docs/FIRST-RUN.md) for the full beginner flow.
 
@@ -89,6 +90,7 @@ The build script:
 - derives `SOURCE_DATE_EPOCH` from the core commit;
 - uses the official BTX `depends` tree by default;
 - enables upstream hardening with `ENABLE_HARDENING=ON`;
+- runs the upstream `check-security` target when the core generates it;
 - avoids `-march=native` and other host-specific optimization flags;
 - packages a source manifest with every artifact.
 

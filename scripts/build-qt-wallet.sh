@@ -7,6 +7,7 @@ BTX_CORE_COMMIT="${BTX_CORE_COMMIT:-2d983afab1338762b43d2614cb1104ac8a1520ec}"
 BTX_ARTIFACT_VERSION="${BTX_ARTIFACT_VERSION:-v0.1.0-qt}"
 BTX_USE_DEPENDS="${BTX_USE_DEPENDS:-1}"
 BTX_BUILD_DEPLOY="${BTX_BUILD_DEPLOY:-0}"
+BTX_RUN_SECURITY_CHECKS="${BTX_RUN_SECURITY_CHECKS:-1}"
 BTX_WITH_QRENCODE="${BTX_WITH_QRENCODE:-ON}"
 BTX_JOBS="${BTX_JOBS:-}"
 
@@ -29,6 +30,22 @@ die() {
 
 require_cmd() {
   command -v "$1" >/dev/null 2>&1 || die "missing required command: $1"
+}
+
+find_python() {
+  if [ -n "${PYTHON:-}" ] && "${PYTHON}" --version >/dev/null 2>&1; then
+    printf '%s\n' "${PYTHON}"
+    return 0
+  fi
+  if command -v python3 >/dev/null 2>&1 && python3 --version >/dev/null 2>&1; then
+    printf '%s\n' "python3"
+    return 0
+  fi
+  if command -v python >/dev/null 2>&1 && python --version >/dev/null 2>&1; then
+    printf '%s\n' "python"
+    return 0
+  fi
+  return 1
 }
 
 jobs() {
@@ -82,27 +99,74 @@ sha256_file() {
   fi
 }
 
-cmake_archive_tgz() {
+deterministic_archive() {
   local archive="$1"
   local source_dir="$2"
-  (
-    cd "${source_dir}"
-    cmake -E tar czf "${archive}" .
-  )
-}
+  local format="$3"
+  "${PYTHON_BIN}" - "${source_dir}" "${archive}" "${format}" "${SOURCE_DATE_EPOCH}" <<'PY'
+import datetime
+import gzip
+import os
+import stat
+import sys
+import tarfile
+import zipfile
 
-cmake_archive_zip() {
-  local archive="$1"
-  local source_dir="$2"
-  (
-    cd "${source_dir}"
-    cmake -E tar cf "${archive}" --format=zip .
-  )
+source_dir, archive, fmt, epoch_raw = sys.argv[1:]
+epoch = int(epoch_raw)
+zip_epoch = max(epoch, 315532800)
+zip_dt = tuple(datetime.datetime.utcfromtimestamp(zip_epoch).timetuple()[:6])
+
+def iter_files(root):
+    entries = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames.sort()
+        filenames.sort()
+        for name in filenames:
+            full = os.path.join(dirpath, name)
+            rel = os.path.relpath(full, root).replace(os.sep, "/")
+            entries.append((rel, full))
+    return entries
+
+if fmt == "zip":
+    with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
+        for rel, full in iter_files(source_dir):
+            st = os.stat(full)
+            info = zipfile.ZipInfo(rel, zip_dt)
+            info.external_attr = (stat.S_IMODE(st.st_mode) & 0xFFFF) << 16
+            with open(full, "rb") as fh:
+                zf.writestr(info, fh.read(), compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
+elif fmt == "tar.gz":
+    tmp_tar = archive + ".tar"
+    with tarfile.open(tmp_tar, "w", format=tarfile.PAX_FORMAT) as tf:
+        for rel, full in iter_files(source_dir):
+            st = os.stat(full)
+            info = tf.gettarinfo(full, arcname=rel)
+            info.uid = 0
+            info.gid = 0
+            info.uname = ""
+            info.gname = ""
+            info.mtime = epoch
+            info.mode = stat.S_IMODE(st.st_mode)
+            with open(full, "rb") as fh:
+                tf.addfile(info, fh)
+    with open(tmp_tar, "rb") as raw, open(archive, "wb") as out:
+        with gzip.GzipFile(filename="", mode="wb", fileobj=out, mtime=epoch, compresslevel=9) as gz:
+            while True:
+                chunk = raw.read(1024 * 1024)
+                if not chunk:
+                    break
+                gz.write(chunk)
+    os.remove(tmp_tar)
+else:
+    raise SystemExit(f"unsupported archive format: {fmt}")
+PY
 }
 
 require_cmd git
 require_cmd cmake
 require_cmd make
+PYTHON_BIN="$(find_python)" || die "missing required command: python3 or python"
 
 mkdir -p "${WORK_DIR}" "${BUILD_ROOT}" "${STAGE_ROOT}" "${ARTIFACT_DIR}"
 
@@ -181,9 +245,22 @@ cmake "${cmake_args[@]}"
 log "Building btx-qt and companion CLI tools"
 cmake --build "${build_dir}" --config Release -j"$(jobs)"
 
+if [ "${BTX_RUN_SECURITY_CHECKS}" = "1" ]; then
+  if cmake --build "${build_dir}" --config Release --target help | grep -Eq '(^|[[:space:]])check-security($|[[:space:]:])'; then
+    log "Running upstream binary security checks"
+    cmake --build "${build_dir}" --config Release --target check-security
+  else
+    log "No upstream check-security target generated for this platform/configuration"
+  fi
+fi
+
 if [ "${BTX_BUILD_DEPLOY}" = "1" ]; then
-  log "Building upstream deploy target"
-  cmake --build "${build_dir}" --config Release --target deploy -j"$(jobs)"
+  if cmake --build "${build_dir}" --config Release --target help | grep -Eq '(^|[[:space:]])deploy($|[[:space:]:])'; then
+    log "Building upstream deploy target"
+    cmake --build "${build_dir}" --config Release --target deploy -j"$(jobs)"
+  else
+    log "No upstream deploy target generated for this platform/configuration; continuing with signed archive"
+  fi
 fi
 
 log "Installing staged release tree"
@@ -193,6 +270,9 @@ mkdir -p "${stage_dir}/BTX-Wallet-Phase0"
 cp "${REPO_ROOT}/docs/btx-pruned.conf" "${stage_dir}/BTX-Wallet-Phase0/btx-pruned.conf"
 cp "${REPO_ROOT}/docs/FIRST-RUN.md" "${stage_dir}/BTX-Wallet-Phase0/FIRST-RUN.md"
 cp "${REPO_ROOT}/RELEASE-CHECKLIST.md" "${stage_dir}/BTX-Wallet-Phase0/RELEASE-CHECKLIST.md"
+cp "${REPO_ROOT}/scripts/launch-btx-qt-pruned.sh" "${stage_dir}/BTX-Wallet-Phase0/launch-btx-qt-pruned.sh"
+cp "${REPO_ROOT}/scripts/launch-btx-qt-pruned.cmd" "${stage_dir}/BTX-Wallet-Phase0/launch-btx-qt-pruned.cmd"
+chmod 0755 "${stage_dir}/BTX-Wallet-Phase0/launch-btx-qt-pruned.sh"
 
 cat > "${stage_dir}/BTX-Wallet-Phase0/SOURCE-MANIFEST.txt" <<EOF
 BTX Wallet artifact: ${artifact_name}
@@ -205,14 +285,28 @@ Target OS: ${target_os}
 Target arch: ${target_arch}
 Depends host: ${depends_host:-system}
 CMake: $(cmake --version | head -n 1)
+Security checks requested: ${BTX_RUN_SECURITY_CHECKS}
 EOF
+
+(
+  cd "${stage_dir}"
+  find . -type f -print | LC_ALL=C sort | while IFS= read -r file; do
+    clean="${file#./}"
+    if command -v sha256sum >/dev/null 2>&1; then
+      sha256sum "${clean}"
+    else
+      shasum -a 256 "${clean}"
+    fi
+  done > BTX-Wallet-Phase0/PAYLOAD-SHA256SUMS.tmp
+  mv BTX-Wallet-Phase0/PAYLOAD-SHA256SUMS.tmp BTX-Wallet-Phase0/PAYLOAD-SHA256SUMS
+)
 
 if [ "${target_os}" = "windows" ]; then
   archive="${ARTIFACT_DIR}/${artifact_name}.zip"
-  cmake_archive_zip "${archive}" "${stage_dir}"
+  deterministic_archive "${archive}" "${stage_dir}" "zip"
 else
   archive="${ARTIFACT_DIR}/${artifact_name}.tar.gz"
-  cmake_archive_tgz "${archive}" "${stage_dir}"
+  deterministic_archive "${archive}" "${stage_dir}" "tar.gz"
 fi
 
 sha256_file "${archive}" > "${archive}.sha256"

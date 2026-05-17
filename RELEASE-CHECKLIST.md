@@ -25,9 +25,10 @@ BTX core source:
 - [ ] Test wallet encrypted and reopened.
 - [ ] Transparent test transaction sent.
 - [ ] Shielded SMILE v2 test transaction sent.
+- [ ] Pruned first-run launchers confirmed with `-prune=4096`.
 - [ ] Pruned first-run configuration confirmed with `prune=4096`.
 - [ ] GitHub Actions `.github/workflows/release.yml` completed successfully.
-- [ ] GitHub Release contains artifacts, SHA256 sums, signatures, and this checklist.
+- [ ] GitHub Release contains artifacts, SHA256 sums, signatures, `SIGNED-ARTIFACTS.txt`, reproducibility proofs, and this checklist.
 
 ## Build Evidence
 
@@ -62,8 +63,10 @@ TODO: paste shielded SMILE v2 txid or operation id plus final txid
 - [ ] `-DENABLE_HARDENING=ON` was used.
 - [ ] `-DREDUCE_EXPORTS=ON` was used.
 - [ ] `-DWERROR=ON` was used.
+- [ ] Upstream `check-security` target passed where generated.
 - [ ] No `-march=native` or machine-local optimization flag was used.
 - [ ] Release artifacts include `BTX-Wallet-Phase0/btx-pruned.conf`.
+- [ ] Release artifacts include pruned `btx-qt` launchers for Windows and Linux/macOS.
 
 ## Release Approval
 

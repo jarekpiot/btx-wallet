@@ -20,6 +20,8 @@ configuring CMake.
 - The official BTX `depends` tree is used by default.
 - CPU-local flags such as `-march=native` are not used.
 - CMake hardening is enabled through the upstream `ENABLE_HARDENING=ON` path.
+- The upstream `check-security` target is run when the build configuration
+  generates it.
 - Release archives include a source manifest beside the binaries.
 
 ## Local Build
@@ -44,8 +46,12 @@ For macOS and Linux, run the same script on clean hosts for each target.
 
 ## Reproducibility Proof
 
-For each platform, perform two clean builds from the same commit and compare the
-artifact hashes:
+The GitHub Actions release workflow performs two independent builds for each
+platform target using separate source, depends, build, and staging directories.
+The workflow fails unless the same-platform artifact hashes are identical.
+
+For local verification, perform two clean builds from the same commit and
+compare the artifact hashes:
 
 ```bash
 sha256sum artifacts/btx-wallet-v0.1.0-qt-*.tar.gz artifacts/btx-wallet-v0.1.0-qt-*.zip

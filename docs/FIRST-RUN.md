@@ -29,15 +29,26 @@ verification flow.
 Phase 0 is designed for normal BTC, NEAR, and ZEC users who want a private
 desktop wallet without running an archival node.
 
-Before the first run, copy `BTX-Wallet-Phase0/btx-pruned.conf` to your BTX data
-directory as `btx.conf`:
+For the first run, use the packaged pruned launcher:
+
+- Linux/macOS: `BTX-Wallet-Phase0/launch-btx-qt-pruned.sh`
+- Windows: `BTX-Wallet-Phase0\launch-btx-qt-pruned.cmd`
+
+The launcher starts `btx-qt` with:
+
+```text
+-prune=4096 -pruneduringinit=4096 -retainshieldedcommitmentindex=1
+```
+
+For a permanent config, copy `BTX-Wallet-Phase0/btx-pruned.conf` to your BTX
+data directory as `btx.conf`:
 
 - Linux: `~/.btx/btx.conf`
 - macOS: `~/Library/Application Support/BTX/btx.conf`
 - Windows: `%APPDATA%\BTX\btx.conf`
 
-The starter config enables `prune=4096`, keeps the shielded commitment index,
-and does not add telemetry or phone-home services.
+The starter config and launcher enable pruning, keep the shielded commitment
+index, and do not add telemetry or phone-home services.
 
 ## 3. Create and Encrypt a Wallet
 

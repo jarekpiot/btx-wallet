@@ -31,17 +31,17 @@ jobs:
             artifact_arch: x86_64
             runner: ubuntu-24.04
             depends_host: x86_64-pc-linux-gnu
-            apt_packages: build-essential cmake pkgconf python3 gperf bison
+            apt_packages: build-essential cmake curl make patch bison g++ pkgconf python3 xz-utils
           - artifact_os: windows
             artifact_arch: x86_64
             runner: ubuntu-24.04
             depends_host: x86_64-w64-mingw32
-            apt_packages: build-essential cmake pkgconf python3 gperf bison nsis g++-mingw-w64-x86-64-posix
+            apt_packages: build-essential cmake curl make patch bison g++ pkgconf python3 xz-utils nsis g++-mingw-w64-x86-64-posix
           - artifact_os: macos
             artifact_arch: arm64
             runner: macos-14
             depends_host: arm64-apple-darwin
-            brew_packages: cmake pkgconf gnu-getopt
+            brew_packages: cmake pkgconf gnu-getopt coreutils
 
     steps:
       - name: Checkout wallet repo
@@ -59,14 +59,57 @@ jobs:
           brew update
           brew install ${{ matrix.brew_packages }}
 
-      - name: Build deterministic artifact
+      - name: Build deterministic artifact pass 1
         env:
           BTX_TARGET_OS: ${{ matrix.artifact_os }}
           BTX_TARGET_ARCH: ${{ matrix.artifact_arch }}
           BTX_DEPENDS_HOST: ${{ matrix.depends_host }}
           BTX_USE_DEPENDS: "1"
           BTX_BUILD_DEPLOY: "1"
+          BTX_ARTIFACT_DIR: artifacts-pass1
+          BTX_WORK_DIR: .work-pass1
+        run: |
+          rm -rf .work-pass1 .work-pass2 artifacts-pass1 artifacts-pass2 artifacts
+          bash scripts/build-qt-wallet.sh
+
+      - name: Build deterministic artifact pass 2
+        env:
+          BTX_TARGET_OS: ${{ matrix.artifact_os }}
+          BTX_TARGET_ARCH: ${{ matrix.artifact_arch }}
+          BTX_DEPENDS_HOST: ${{ matrix.depends_host }}
+          BTX_USE_DEPENDS: "1"
+          BTX_BUILD_DEPLOY: "1"
+          BTX_ARTIFACT_DIR: artifacts-pass2
+          BTX_WORK_DIR: .work-pass2
         run: bash scripts/build-qt-wallet.sh
+
+      - name: Compare reproducible artifact hashes
+        run: |
+          mkdir -p artifacts
+          proof="artifacts/reproducibility-${{ matrix.artifact_os }}-${{ matrix.artifact_arch }}.txt"
+          artifact_name="btx-wallet-${BTX_ARTIFACT_VERSION}-${{ matrix.artifact_os }}-${{ matrix.artifact_arch }}"
+          if [ "${{ matrix.artifact_os }}" = "windows" ]; then
+            suffix=".zip"
+          else
+            suffix=".tar.gz"
+          fi
+          first="artifacts-pass1/${artifact_name}${suffix}"
+          second="artifacts-pass2/${artifact_name}${suffix}"
+          test -f "$first"
+          test -f "$second"
+          first_hash="$(sha256sum "$first" | cut -d ' ' -f 1)"
+          second_hash="$(sha256sum "$second" | cut -d ' ' -f 1)"
+          {
+            echo "Artifact: ${artifact_name}${suffix}"
+            echo "Runner: ${{ runner.os }} / ${{ matrix.runner }}"
+            echo "Depends host: ${{ matrix.depends_host }}"
+            echo "BTX core ref: ${BTX_CORE_REF}"
+            echo "BTX core commit: ${BTX_CORE_COMMIT}"
+            echo "Pass 1 SHA256: ${first_hash}"
+            echo "Pass 2 SHA256: ${second_hash}"
+          } > "$proof"
+          test "$first_hash" = "$second_hash"
+          cp artifacts-pass2/* artifacts/
 
       - name: Verify wallet repo adds no crypto implementation
         run: bash scripts/verify-no-new-crypto.sh

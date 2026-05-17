@@ -43,6 +43,21 @@ find "${ARTIFACT_DIR}" -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.zip' 
   done < .artifact-list
 
   gpg_sign SHA256SUMS
+  {
+    printf 'BTX Wallet signed artifact summary\n'
+    printf 'Generated: %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+    if [ -n "${GPG_KEY_ID}" ]; then
+      printf 'GPG key id: %s\n' "${GPG_KEY_ID}"
+      gpg --batch --with-colons --fingerprint "${GPG_KEY_ID}" 2>/dev/null | awk -F: '/^fpr:/ {print "GPG fingerprint: " $10; exit}'
+    fi
+    printf '\nSHA256SUMS:\n'
+    cat SHA256SUMS
+    printf '\nDetached signatures:\n'
+    for sig in ./*.asc; do
+      [ -e "${sig}" ] || continue
+      basename "${sig}"
+    done | sort
+  } > SIGNED-ARTIFACTS.txt
   rm -f .artifact-list
 )
 
