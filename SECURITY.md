@@ -37,6 +37,7 @@ wallet signing/proving logic.
 Every production release must provide:
 
 - pinned BTX core source commit;
+- public release key in `docs/release-signing-key.asc`;
 - reproducible build logs for Linux, Windows, and macOS artifacts;
 - SHA256 sums;
 - detached GPG signatures for artifacts;

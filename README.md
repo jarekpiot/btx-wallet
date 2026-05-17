@@ -32,6 +32,12 @@ Also download:
 - `SHA256SUMS.asc`
 - the matching artifact `.asc` signature
 
+Import the Phase 0 release public key first:
+
+```bash
+gpg --import docs/release-signing-key.asc
+```
+
 Verify before opening the wallet:
 
 ```bash
@@ -106,6 +112,9 @@ Required GitHub secrets:
 - `BTX_RELEASE_GPG_PRIVATE_KEY`
 - `BTX_RELEASE_GPG_KEY_ID`
 - `BTX_RELEASE_GPG_PASSPHRASE` if the key is passphrase-protected
+
+The Phase 0 public release key is committed at
+[docs/release-signing-key.asc](docs/release-signing-key.asc).
 
 The release is not complete until [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md)
 contains clean build hashes, GPG verification output, and wallet smoke-test

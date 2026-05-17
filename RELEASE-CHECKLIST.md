@@ -19,6 +19,7 @@ BTX core source:
 - [ ] `SHA256SUMS` generated.
 - [ ] `SHA256SUMS.asc` generated with the release GPG key.
 - [ ] Each binary/archive has a detached `.asc` signature.
+- [ ] Release public key in `docs/release-signing-key.asc` matches signing key fingerprint.
 - [ ] `scripts/verify-release-artifacts.sh artifacts` passed.
 - [ ] `scripts/verify-no-new-crypto.sh` passed.
 - [ ] Test wallet created.
