@@ -9,6 +9,7 @@ BTX_USE_DEPENDS="${BTX_USE_DEPENDS:-1}"
 BTX_BUILD_DEPLOY="${BTX_BUILD_DEPLOY:-0}"
 BTX_RUN_SECURITY_CHECKS="${BTX_RUN_SECURITY_CHECKS:-1}"
 BTX_WITH_QRENCODE="${BTX_WITH_QRENCODE:-ON}"
+BTX_WERROR="${BTX_WERROR:-OFF}"
 BTX_JOBS="${BTX_JOBS:-}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -235,7 +236,7 @@ cmake_args=(
   -DENABLE_WALLET=ON
   -DENABLE_HARDENING=ON
   -DREDUCE_EXPORTS=ON
-  -DWERROR=ON
+  -DWERROR="${BTX_WERROR}"
   -DWITH_QRENCODE="${BTX_WITH_QRENCODE}"
   -DWITH_ZMQ=OFF
   -DWITH_MINIUPNPC=OFF
@@ -295,6 +296,7 @@ Target arch: ${target_arch}
 Depends host: ${depends_host:-system}
 CMake: $(cmake --version | head -n 1)
 Security checks requested: ${BTX_RUN_SECURITY_CHECKS}
+Warnings as errors: ${BTX_WERROR}
 EOF
 
 (

@@ -63,7 +63,8 @@ TODO: paste shielded SMILE v2 txid or operation id plus final txid
 - [ ] All cryptographic operations remain in official `btxchain/btx`.
 - [ ] `-DENABLE_HARDENING=ON` was used.
 - [ ] `-DREDUCE_EXPORTS=ON` was used.
-- [ ] `-DWERROR=ON` was used.
+- [ ] Release hardening was used without patching official BTX core source.
+- [ ] `-DWERROR` policy recorded in `BTX-Wallet-Phase0/SOURCE-MANIFEST.txt`.
 - [ ] Upstream `check-security` target passed where generated.
 - [ ] No `-march=native` or machine-local optimization flag was used.
 - [ ] Release artifacts include `BTX-Wallet-Phase0/btx-pruned.conf`.

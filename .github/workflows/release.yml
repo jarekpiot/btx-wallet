@@ -41,7 +41,7 @@ jobs:
             artifact_arch: arm64
             runner: macos-14
             depends_host: arm64-apple-darwin
-            brew_packages: cmake pkgconf gnu-getopt coreutils librsvg imagemagick
+            brew_packages: cmake pkgconf gnu-getopt coreutils librsvg imagemagick libicns llvm
 
     steps:
       - name: Checkout wallet repo

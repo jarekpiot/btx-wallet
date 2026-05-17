@@ -51,7 +51,9 @@ The Phase 0 build must use upstream BTX CMake hardening:
 
 - `-DENABLE_HARDENING=ON`
 - `-DREDUCE_EXPORTS=ON`
-- `-DWERROR=ON`
+- compiler warning gates are run by upstream CI; Phase 0 release builds do not force
+  warning-as-error because the pinned official BTX core tag contains non-security
+  warning noise on some supported compilers
 - no `-march=native`
 - no host-specific CPU tuning in release artifacts
 
