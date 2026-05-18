@@ -37,6 +37,19 @@ export interface BalanceSet {
   immature?: number;
 }
 
+export interface ShieldedNoteSummary {
+  available: boolean;
+  noteCount: number;
+  spendableCount: number;
+  immatureCount: number;
+  totalAmount: number;
+  largestNote: number;
+  smallNoteCount: number;
+  complexity: "low" | "medium" | "high" | "unknown";
+  guidance: string[];
+  unavailableReason?: string;
+}
+
 export interface TransactionItem {
   txid?: string;
   category?: string;
@@ -52,6 +65,7 @@ export interface Overview {
   node?: NodeInfo;
   wallet?: WalletInfo;
   balances?: BalanceSet;
+  shieldedNoteSummary?: ShieldedNoteSummary;
   transactions: TransactionItem[];
   configuredWallet?: string;
 }

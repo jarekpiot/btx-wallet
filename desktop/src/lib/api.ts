@@ -37,6 +37,10 @@ export function sendShielded(address: string, amount: string, comment: string): 
   return invoke("send_shielded", { address, amount, comment });
 }
 
+export function consolidateShielded(amount: string, comment: string): Promise<string> {
+  return invoke("consolidate_shielded_notes", { amount, comment });
+}
+
 export function viewShielded(txid: string, includeSensitive: boolean): Promise<unknown> {
   return invoke("view_shielded_transaction", { txid, includeSensitive });
 }

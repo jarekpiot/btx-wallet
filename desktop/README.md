@@ -22,6 +22,15 @@ For `v0.2.0-light`, the app is a lightweight client over trusted BTX JSON-RPC.
 Normal users can install and open the app without syncing a full chain. They can
 connect to a local node later, or to a trusted remote `btxd` endpoint.
 
+## Shielded Send Reliability
+
+The app reads shielded note metadata from `z_listunspent` when the connected
+node exposes it. That metadata is used only for user guidance: note-count
+warnings, large-send hints, and a simple consolidation action that sends BTX
+back to a fresh shielded address in the same wallet through official BTX RPC.
+The desktop layer still does not build, sign, decrypt, or verify shielded
+transactions itself.
+
 ## Development
 
 ```bash
@@ -46,6 +55,7 @@ npm run tauri:build
 - `getwalletinfo`
 - `getbalances`
 - `z_gettotalbalance`
+- `z_listunspent`
 - `listtransactions`
 - `createwallet`
 - `restorewallet`

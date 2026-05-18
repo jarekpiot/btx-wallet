@@ -265,7 +265,7 @@ h3 {
 
 .status-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 14px;
   margin-bottom: 14px;
 }
@@ -382,6 +382,71 @@ textarea:focus {
 .mini-balance strong {
   display: block;
   margin-top: 6px;
+}
+
+.note-health,
+.guidance,
+.consolidation {
+  margin-top: 14px;
+  border-radius: 8px;
+}
+
+.note-health {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #bddfc8;
+  background: #f1faf4;
+}
+
+.note-health.warning {
+  border-color: #dfd0a8;
+  background: #fff9ea;
+}
+
+.note-health.danger {
+  border-color: #efb5b5;
+  background: #fff0f0;
+}
+
+.note-health span,
+.guidance p,
+.consolidation p,
+.note-stats span {
+  color: #5f7167;
+  font-size: 13px;
+}
+
+.note-health strong,
+.note-stats span {
+  display: block;
+}
+
+.note-stats {
+  display: grid;
+  gap: 4px;
+}
+
+.guidance {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #dfd0a8;
+  background: #fff9ea;
+}
+
+.guidance p,
+.consolidation p {
+  line-height: 1.45;
+}
+
+.consolidation {
+  padding-top: 16px;
+  border-top: 1px solid #e1e9e4;
+}
+
+.consolidation h3 {
+  margin-top: 0;
 }
 
 .tx-list {

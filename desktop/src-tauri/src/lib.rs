@@ -16,6 +16,9 @@ const MAX_ADDRESS_LEN: usize = 512;
 const MAX_COMMENT_LEN: usize = 80;
 const MAX_TXID_LEN: usize = 128;
 const MAX_BTX_AMOUNT: f64 = 21_000_000.0;
+const NOTE_WARN_THRESHOLD: usize = 32;
+const NOTE_HIGH_THRESHOLD: usize = 64;
+const SMALL_NOTE_BTX: f64 = 0.01;
 
 #[derive(Debug, Error)]
 enum WalletError {
@@ -56,6 +59,7 @@ struct Overview {
     node: Option<Value>,
     wallet: Option<Value>,
     balances: Option<Balances>,
+    shielded_note_summary: Option<ShieldedNoteSummary>,
     transactions: Vec<Value>,
     configured_wallet: Option<String>,
 }
@@ -66,6 +70,21 @@ struct Balances {
     shielded: f64,
     total: f64,
     immature: f64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ShieldedNoteSummary {
+    available: bool,
+    note_count: usize,
+    spendable_count: usize,
+    immature_count: usize,
+    total_amount: f64,
+    largest_note: f64,
+    small_note_count: usize,
+    complexity: String,
+    guidance: Vec<String>,
+    unavailable_reason: Option<String>,
 }
 
 struct AppState {
@@ -270,10 +289,38 @@ async fn rpc_call(
 }
 
 fn format_rpc_error(error: &Value) -> String {
-    if let Some(message) = error.get("message").and_then(Value::as_str) {
+    let message = if let Some(message) = error.get("message").and_then(Value::as_str) {
         message.to_string()
     } else {
         error.to_string()
+    };
+    explain_rpc_error(&message)
+}
+
+fn explain_rpc_error(message: &str) -> String {
+    let lower = message.to_ascii_lowercase();
+    let hint = if lower.contains("walletpassphrase")
+        || lower.contains("wallet is locked")
+        || lower.contains("unlock")
+    {
+        Some("Unlock the wallet temporarily in Settings, then try again.")
+    } else if lower.contains("insufficient") || lower.contains("not enough") {
+        Some("Check the available balance and fee reserve. For shielded sends, fragmented notes may need consolidation first.")
+    } else if lower.contains("note") || lower.contains("anchor") || lower.contains("witness") {
+        Some("Refresh the wallet and let the node finish scanning. If the wallet has many small shielded notes, consolidate or split the send.")
+    } else if lower.contains("timeout") || lower.contains("timed out") {
+        Some("The node took too long to answer. Check that btxd is running, synced, and reachable, then retry.")
+    } else if lower.contains("connection refused") || lower.contains("connect") {
+        Some("Check the RPC URL, credentials, and whether btxd is running.")
+    } else if lower.contains("invalid address") || lower.contains("address") {
+        Some("Confirm the recipient address and selected send mode match.")
+    } else {
+        None
+    };
+
+    match hint {
+        Some(hint) => format!("{message}\n\nWhat to try: {hint}"),
+        None => message.to_string(),
     }
 }
 
@@ -306,6 +353,13 @@ async fn build_overview(state: &State<'_, AppState>, config: &RpcConfig) -> Wall
         _ => None,
     };
 
+    let shielded_note_summary = match configured_wallet.as_deref() {
+        Some(wallet_name) if !wallet_name.is_empty() => {
+            Some(read_shielded_note_summary(state, config, wallet_name).await)
+        }
+        _ => None,
+    };
+
     let transactions = match configured_wallet.as_deref() {
         Some(wallet_name) if !wallet_name.is_empty() => rpc_call(
             state,
@@ -326,6 +380,7 @@ async fn build_overview(state: &State<'_, AppState>, config: &RpcConfig) -> Wall
         node: Some(node),
         wallet,
         balances,
+        shielded_note_summary,
         transactions,
         configured_wallet,
     })
@@ -370,6 +425,117 @@ async fn read_balances(
     })
 }
 
+async fn read_shielded_note_summary(
+    state: &State<'_, AppState>,
+    config: &RpcConfig,
+    wallet: &str,
+) -> ShieldedNoteSummary {
+    match rpc_call(
+        state,
+        config,
+        Some(wallet),
+        "z_listunspent",
+        json!([1, 9999999]),
+    )
+    .await
+    {
+        Ok(value) => summarize_shielded_notes(&value),
+        Err(error) => ShieldedNoteSummary {
+            available: false,
+            note_count: 0,
+            spendable_count: 0,
+            immature_count: 0,
+            total_amount: 0.0,
+            largest_note: 0.0,
+            small_note_count: 0,
+            complexity: "unknown".to_string(),
+            guidance: vec![
+                "Shielded note detail is unavailable from this node. You can still send, but large shielded sends may be less predictable.".to_string(),
+            ],
+            unavailable_reason: Some(error.to_string()),
+        },
+    }
+}
+
+fn summarize_shielded_notes(value: &Value) -> ShieldedNoteSummary {
+    let notes = value.as_array().cloned().unwrap_or_default();
+    let mut note_count = 0usize;
+    let mut spendable_count = 0usize;
+    let mut immature_count = 0usize;
+    let mut total_amount = 0.0f64;
+    let mut largest_note = 0.0f64;
+    let mut small_note_count = 0usize;
+
+    for note in notes {
+        let amount = value_amount(&note).unwrap_or(0.0);
+        if amount <= 0.0 {
+            continue;
+        }
+        note_count += 1;
+        total_amount += amount;
+        largest_note = largest_note.max(amount);
+        if amount < SMALL_NOTE_BTX {
+            small_note_count += 1;
+        }
+        let spendable = note
+            .get("spendable")
+            .and_then(Value::as_bool)
+            .unwrap_or(true);
+        let confirmations = note
+            .get("confirmations")
+            .and_then(Value::as_u64)
+            .unwrap_or(1);
+        if spendable && confirmations > 0 {
+            spendable_count += 1;
+        } else {
+            immature_count += 1;
+        }
+    }
+
+    let mut guidance = Vec::new();
+    let complexity = if spendable_count >= NOTE_HIGH_THRESHOLD {
+        guidance.push("This wallet has many spendable shielded notes. Large sends may hit note limits or take longer to build.".to_string());
+        guidance.push("Consider consolidating to a fresh shielded address or splitting the payment into smaller sends.".to_string());
+        "high"
+    } else if spendable_count >= NOTE_WARN_THRESHOLD || small_note_count >= NOTE_WARN_THRESHOLD {
+        guidance.push("Shielded balance is fragmented across many notes. Most sends should work, but large sends may need consolidation.".to_string());
+        "medium"
+    } else {
+        guidance.push("Shielded note count looks manageable for normal sends.".to_string());
+        "low"
+    };
+
+    if immature_count > 0 {
+        guidance.push("Some shielded notes are not spendable yet. Wait for confirmations before sending the full balance.".to_string());
+    }
+
+    ShieldedNoteSummary {
+        available: true,
+        note_count,
+        spendable_count,
+        immature_count,
+        total_amount,
+        largest_note,
+        small_note_count,
+        complexity: complexity.to_string(),
+        guidance,
+        unavailable_reason: None,
+    }
+}
+
+fn value_amount(value: &Value) -> Option<f64> {
+    value
+        .get("amount")
+        .or_else(|| value.get("value"))
+        .and_then(|amount| {
+            if let Some(number) = amount.as_f64() {
+                Some(number)
+            } else {
+                amount.as_str().and_then(|text| text.parse::<f64>().ok())
+            }
+        })
+}
+
 #[tauri::command]
 async fn configure_connection(
     config: RpcConfig,
@@ -400,6 +566,7 @@ async fn get_overview(state: State<'_, AppState>) -> WalletResult<Overview> {
             node: None,
             wallet: None,
             balances: None,
+            shielded_note_summary: None,
             transactions: Vec::new(),
             configured_wallet: None,
         }),
@@ -586,6 +753,10 @@ async fn send_shielded(
     )
     .await?;
 
+    shielded_txid_from_result(&result)
+}
+
+fn shielded_txid_from_result(result: &Value) -> WalletResult<String> {
     if let Some(txid) = result.as_str() {
         return Ok(txid.to_string());
     }
@@ -595,6 +766,39 @@ async fn send_shielded(
     Err(WalletError::Message(
         "Node returned an invalid shielded transaction response.".to_string(),
     ))
+}
+
+#[tauri::command]
+async fn consolidate_shielded_notes(
+    amount: String,
+    comment: String,
+    state: State<'_, AppState>,
+) -> WalletResult<String> {
+    let config = current_config(&state)?;
+    let wallet = config
+        .wallet
+        .as_deref()
+        .ok_or_else(|| WalletError::Message("No wallet is configured.".to_string()))?;
+    let parsed_amount = parse_amount(&amount)?;
+    let comment = comment.trim();
+    ensure_len("Shielded comment", comment, 0, MAX_COMMENT_LEN)?;
+    let address = rpc_call(&state, &config, Some(wallet), "z_getnewaddress", json!([]))
+        .await?
+        .as_str()
+        .map(ToString::to_string)
+        .ok_or_else(|| {
+            WalletError::Message("Node returned an invalid shielded address response.".to_string())
+        })?;
+    let result = rpc_call(
+        &state,
+        &config,
+        Some(wallet),
+        "z_sendtoaddress",
+        json!([address, parsed_amount, comment]),
+    )
+    .await?;
+
+    shielded_txid_from_result(&result)
 }
 
 #[tauri::command]
@@ -706,6 +910,7 @@ pub fn run() {
             new_address,
             send_transparent,
             send_shielded,
+            consolidate_shielded_notes,
             view_shielded_transaction,
             backup_wallet_bundle
         ])
@@ -798,5 +1003,27 @@ mod tests {
     fn txids_must_be_hex() {
         assert!(validate_txid("aabbcc").is_ok());
         assert!(validate_txid("not-a-txid").is_err());
+    }
+
+    #[test]
+    fn shielded_note_summary_detects_fragmentation() {
+        let notes = json!([
+            {"amount": "0.001", "spendable": true, "confirmations": 10},
+            {"amount": "0.002", "spendable": true, "confirmations": 10},
+            {"amount": "1.5", "spendable": true, "confirmations": 10}
+        ]);
+        let summary = summarize_shielded_notes(&notes);
+        assert!(summary.available);
+        assert_eq!(summary.note_count, 3);
+        assert_eq!(summary.spendable_count, 3);
+        assert_eq!(summary.small_note_count, 2);
+        assert_eq!(summary.largest_note, 1.5);
+    }
+
+    #[test]
+    fn rpc_errors_get_actionable_context() {
+        let message = explain_rpc_error("Insufficient funds");
+        assert!(message.contains("What to try"));
+        assert!(message.contains("consolidation"));
     }
 }
