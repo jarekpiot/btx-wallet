@@ -24,6 +24,8 @@ SHA256 sums, and no wallet-layer cryptographic code in this repository.
 - Runs a full BTX node and wallet together.
 - Maximum trustlessness.
 - Includes pruning defaults for normal gaming PCs.
+- Includes a light usability backport for clearer shielded RPC guidance,
+  consolidation suggestions, and Qt empty states.
 - Best suited for users who want to validate the full chain themselves.
 
 ### BTX Wallet Light - Phase 1 (Recommended)
@@ -133,4 +135,5 @@ scripts/verify-release-artifacts.sh artifacts
 
 See [docs/FIRST-RUN.md](docs/FIRST-RUN.md),
 [docs/PHASE1-LIGHT-CLIENT.md](docs/PHASE1-LIGHT-CLIENT.md), and
-[docs/REPRODUCIBLE-BUILDS.md](docs/REPRODUCIBLE-BUILDS.md) for more detail.
+[docs/PHASE0-QT-USABILITY-BACKPORT.md](docs/PHASE0-QT-USABILITY-BACKPORT.md),
+and [docs/REPRODUCIBLE-BUILDS.md](docs/REPRODUCIBLE-BUILDS.md) for more detail.
