@@ -4,7 +4,7 @@ Release tag: `v0.1.0-qt`
 
 Release URL: <https://github.com/jarekpiot/btx-wallet/releases/tag/v0.1.0-qt>
 
-Successful workflow run: <https://github.com/jarekpiot/btx-wallet/actions/runs/26012356964>
+Successful workflow run: <https://github.com/jarekpiot/btx-wallet/actions/runs/26017508589>
 
 BTX core source:
 
@@ -43,9 +43,9 @@ BTX core source:
 
 | Platform | Clean build 1 SHA256 | Clean build 2 SHA256 | Match | Runner / OS | Notes |
 |---|---|---|---|---|---|
-| Linux x86_64 | `8a85d9f06f728179e1cbcce8383a054d9e458284e3a062ef3d29343649ad10d6` | `8a85d9f06f728179e1cbcce8383a054d9e458284e3a062ef3d29343649ad10d6` | Yes | Linux / `ubuntu-24.04` | `x86_64-pc-linux-gnu` |
-| Windows x86_64 | `3ad5a553707d1641d242d99ce42b1356f46207fde7fb2580abf40570523c343a` | `3ad5a553707d1641d242d99ce42b1356f46207fde7fb2580abf40570523c343a` | Yes | Linux / `ubuntu-24.04` | MinGW cross toolchain `x86_64-w64-mingw32` |
-| macOS arm64 | `cfde40d009660769b2b1b263c02eaf03f9ed4ec232163413bc275c6925d6cba1` | `cfde40d009660769b2b1b263c02eaf03f9ed4ec232163413bc275c6925d6cba1` | Yes | macOS / `macos-14` | `arm64-apple-darwin` |
+| Linux x86_64 | `f9f2c5583c3db7a533c399cd93bf380111a24b10219366893f10a45dfe067229` | `f9f2c5583c3db7a533c399cd93bf380111a24b10219366893f10a45dfe067229` | Yes | Linux / `ubuntu-24.04` | `x86_64-pc-linux-gnu` |
+| Windows x86_64 | `3488dc2252c4b1e06390e5a27de6fac4c616cc5484a34068f5487ef92abd5e4b` | `3488dc2252c4b1e06390e5a27de6fac4c616cc5484a34068f5487ef92abd5e4b` | Yes | Linux / `ubuntu-24.04` | MinGW cross toolchain `x86_64-w64-mingw32` |
+| macOS arm64 | `0cc7b708dc7f2e68dc75672286da9650edfce199e8ef4a9671afa85d0f201c3b` | `0cc7b708dc7f2e68dc75672286da9650edfce199e8ef4a9671afa85d0f201c3b` | Yes | macOS / `macos-14` | `arm64-apple-darwin` |
 
 ## Signature Evidence
 
@@ -54,9 +54,9 @@ Release GPG fingerprint: `599F9E7A4192E1BD7CEBA82ABB9A6F689BB11C30`
 Published `SHA256SUMS`:
 
 ```text
-8a85d9f06f728179e1cbcce8383a054d9e458284e3a062ef3d29343649ad10d6  btx-wallet-v0.1.0-qt-linux-x86_64.tar.gz
-cfde40d009660769b2b1b263c02eaf03f9ed4ec232163413bc275c6925d6cba1  btx-wallet-v0.1.0-qt-macos-arm64.tar.gz
-3ad5a553707d1641d242d99ce42b1356f46207fde7fb2580abf40570523c343a  btx-wallet-v0.1.0-qt-windows-x86_64.zip
+f9f2c5583c3db7a533c399cd93bf380111a24b10219366893f10a45dfe067229  btx-wallet-v0.1.0-qt-linux-x86_64.tar.gz
+0cc7b708dc7f2e68dc75672286da9650edfce199e8ef4a9671afa85d0f201c3b  btx-wallet-v0.1.0-qt-macos-arm64.tar.gz
+3488dc2252c4b1e06390e5a27de6fac4c616cc5484a34068f5487ef92abd5e4b  btx-wallet-v0.1.0-qt-windows-x86_64.zip
 ```
 
 Actions verification proof:
@@ -74,10 +74,10 @@ Local Windows SHA256 proof:
 
 ```text
 btx-wallet-v0.1.0-qt-windows-x86_64.zip
-SHA256: 3AD5A553707D1641D242D99CE42B1356F46207FDE7FB2580ABF40570523C343A
+SHA256: 3488DC2252C4B1E06390E5A27DE6FAC4C616CC5484A34068F5487EF92ABD5E4B
 ```
 
-Note: local GPG verification was not rerun on this Windows host because `gpg` is not installed on PATH. The release workflow imported the committed public key, verified `SHA256SUMS.asc`, and verified detached artifact signatures before upload.
+Local GPG verification was rerun on this Windows host with Git for Windows `gpg.exe` and a temporary audit keyring. `SHA256SUMS.asc` and all three detached artifact signatures verified successfully against fingerprint `599F9E7A4192E1BD7CEBA82ABB9A6F689BB11C30`.
 
 ## Wallet Smoke Evidence
 
@@ -87,13 +87,15 @@ Windows artifact used: `btx-wallet-v0.1.0-qt-windows-x86_64.zip`
 btxd --version: BTX daemon version v0.29.7
 btx-cli --version: BTX RPC client version v0.29.7
 Regtest node: pruned=true, automatic_pruning=true, prune_target_size=576716800
-Wallet: smoke2
-Wallet encryption: created with passphrase smoke-pass; after daemon restart, loadwallet smoke2 succeeded and walletpassphrase smoke-pass unlocked it.
-Transparent txid: b046d06ad0a6c7cd88246ff7d8a8d864a4c818d2a57f85d892620bf080cad5cf
+Wallet: audit
+Wallet encryption: created with passphrase audit-pass; descriptor wallet opened, unlocked, backed up, restored, and auto-lock verified.
+Transparent txid: b83a7bc31b3eb91a2703d820548a9e9dbf86d35f17eff638881a94a3de7f8def
 Transparent tx confirmations: 1
-Shielded SMILE v2 txid: f28fb5395569492738c307f5d9320752f531c4425eac6ae298432414f67c6c9c
+Shielded SMILE v2 txid: 851f3254f9ebd00e28e2e338ad90b4ca450690cb5d913be7780604d69ece3358
 Shielded tx confirmations: 1
-Shielded balance observed after shielded RPC activity: 54.99915000 BTX
+Shielded balance observed after shielded RPC activity: 1039.97638000 BTX
+Audit wallet bundle: backupwallet, restorewallet, backupwalletbundle, and backupwalletbundlearchive passed with integrity_ok=true.
+Runtime hardening: hardened pruned launch used listen=0, natpmp=0, upnp=0 and log review found no portmap/NAT-PMP add event.
 ```
 
 ## Security Review
@@ -109,6 +111,7 @@ Shielded balance observed after shielded RPC activity: 54.99915000 BTX
 - [x] No `-march=native` or machine-local optimization flag was used.
 - [x] Release artifacts include `BTX-Wallet-Phase0/btx-pruned.conf`.
 - [x] Release artifacts include pruned `btx-qt` launchers for Windows and Linux/macOS.
+- [x] Pruned launchers and starter config disable inbound listening and router port mapping by default with `listen=0`, `natpmp=0`, and `upnp=0`.
 
 ## Release Approval
 
@@ -119,6 +122,6 @@ Date: 2026-05-18
 Decision: GO
 
 ```text
-All automated build, reproducibility, no-new-crypto, signing, checksum, release upload, and Windows smoke-test gates passed.
+All automated build, reproducibility, no-new-crypto, signing, checksum, release upload, hardened runtime, and Windows smoke-test gates passed.
 Residual risk: macOS and Linux GUI launch was not manually opened in this environment; binaries were built, hashed, signed, and included in the release.
 ```
