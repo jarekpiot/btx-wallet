@@ -25,7 +25,10 @@ gpg_sign() {
   gpg "${args[@]}" "${target}"
 }
 
-find "${ARTIFACT_DIR}" -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.dmg' -o -name '*.exe' \) -print | sort > "${ARTIFACT_DIR}/.artifact-list"
+find "${ARTIFACT_DIR}" -maxdepth 1 -type f \( \
+  -name '*.tar.gz' -o -name '*.zip' -o -name '*.dmg' -o -name '*.exe' -o \
+  -name '*.msi' -o -name '*.AppImage' -o -name '*.deb' -o -name '*.rpm' \
+\) -print | sort > "${ARTIFACT_DIR}/.artifact-list"
 [ -s "${ARTIFACT_DIR}/.artifact-list" ] || die "no release artifacts found in ${ARTIFACT_DIR}"
 
 (

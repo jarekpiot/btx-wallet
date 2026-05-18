@@ -7,6 +7,11 @@ Phase 0 ships the audited `btx-qt` wallet from the official
 [`btxchain/btx`](https://github.com/btxchain/btx) core, pinned to `v0.29.7`
 commit `2d983afab1338762b43d2614cb1104ac8a1520ec`.
 
+Phase 1 development lives in [desktop](desktop): a Tauri v2 + Rust + Svelte
+light wallet for `v0.2.0-light` that connects to local or trusted remote
+`btxd` over JSON-RPC, so normal users can install the app without syncing a full
+node first.
+
 - Full SMILE v2 shielded transactions: sender, receiver, and amount hidden,
   with selective disclosure support in the core.
 - Native ML-DSA-44 plus SLH-DSA-128s post-quantum signatures from genesis.
@@ -103,6 +108,19 @@ The build script:
 - packages a source manifest with every artifact.
 
 See [docs/REPRODUCIBLE-BUILDS.md](docs/REPRODUCIBLE-BUILDS.md).
+
+## Phase 1 Desktop App
+
+The Phase 1 light client is intentionally simple and security-first:
+
+- standalone Tauri desktop app in `desktop/`;
+- Svelte interface with distinct shielded and transparent modes;
+- Rust backend for BTX JSON-RPC calls;
+- no wallet-layer cryptography;
+- no persisted RPC password or wallet passphrase;
+- no telemetry or updater phone-home.
+
+See [docs/PHASE1-LIGHT-CLIENT.md](docs/PHASE1-LIGHT-CLIENT.md).
 
 ## Release Process
 

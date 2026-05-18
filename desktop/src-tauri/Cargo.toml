@@ -1,0 +1,23 @@
+[package]
+name = "btx_wallet_light"
+version = "0.2.0"
+description = "BTX Wallet Light desktop application"
+authors = ["BTX Wallet Contributors"]
+license = "MIT"
+repository = "https://github.com/jarekpiot/btx-wallet"
+edition = "2021"
+rust-version = "1.80"
+
+[lib]
+name = "btx_wallet_light_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = [] }
+thiserror = "2"

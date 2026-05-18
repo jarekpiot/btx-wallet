@@ -2,6 +2,12 @@
 **/target/
 **/build/
 **/dist/
+**/node_modules/
+desktop/src-tauri/gen/
+desktop/src-tauri/icons/android/
+desktop/src-tauri/icons/ios/
+desktop/src-tauri/icons/Square*Logo.png
+desktop/src-tauri/icons/StoreLogo.png
 artifacts/
 .work/
 *.exe
@@ -9,6 +15,8 @@ artifacts/
 *.dmg
 *.deb
 *.rpm
+*.msi
+*.AppImage
 
 # Sensitive data
 *.wallet

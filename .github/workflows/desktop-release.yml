@@ -1,0 +1,154 @@
+name: Phase 1 Desktop Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Desktop release tag"
+        required: true
+        default: "v0.2.0-light"
+  push:
+    tags:
+      - "v*-light"
+
+permissions:
+  contents: write
+
+env:
+  SOURCE_DATE_EPOCH: "1779089880"
+  TZ: UTC
+  LC_ALL: C
+  LANG: C
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            runner: ubuntu-24.04
+          - platform: windows-x86_64
+            runner: windows-2022
+          - platform: macos-arm64
+            runner: macos-14
+
+    steps:
+      - name: Checkout wallet repo
+        uses: actions/checkout@v4
+
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Run frontend tests
+        working-directory: desktop
+        run: npm test
+
+      - name: Build frontend
+        working-directory: desktop
+        run: npm run build
+
+      - name: Build Tauri bundle
+        working-directory: desktop
+        run: npm run tauri:build
+
+      - name: Stage artifacts
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          find desktop/src-tauri/target/release/bundle -type f \( \
+            -name '*.msi' -o -name '*.exe' -o -name '*.dmg' -o -name '*.app.tar.gz' -o \
+            -name '*.AppImage' -o -name '*.deb' -o -name '*.rpm' \
+          \) -print | sort | while IFS= read -r file; do
+            base="$(basename "$file")"
+            cp "$file" "artifacts/btx-wallet-${{ github.event.inputs.release_tag || github.ref_name }}-${{ matrix.platform }}-${base}"
+          done
+          test "$(find artifacts -type f | wc -l)" -gt 0
+
+      - name: Upload desktop artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: btx-wallet-desktop-${{ matrix.platform }}
+          path: artifacts/*
+          if-no-files-found: error
+
+  sign-and-release:
+    name: Sign and publish desktop release
+    needs: build
+    runs-on: ubuntu-24.04
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Checkout wallet repo
+        uses: actions/checkout@v4
+
+      - name: Download desktop artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: downloaded-artifacts
+
+      - name: Flatten artifacts
+        run: |
+          mkdir -p artifacts
+          find downloaded-artifacts -type f -print -exec cp {} artifacts/ \;
+
+      - name: Import release GPG key
+        env:
+          BTX_RELEASE_GPG_PRIVATE_KEY: ${{ secrets.BTX_RELEASE_GPG_PRIVATE_KEY }}
+        run: |
+          test -n "$BTX_RELEASE_GPG_PRIVATE_KEY"
+          printf '%s' "$BTX_RELEASE_GPG_PRIVATE_KEY" | gpg --batch --import
+
+      - name: Configure GPG passphrase
+        env:
+          BTX_RELEASE_GPG_PASSPHRASE: ${{ secrets.BTX_RELEASE_GPG_PASSPHRASE }}
+        run: |
+          if [ -n "$BTX_RELEASE_GPG_PASSPHRASE" ]; then
+            mkdir -p ~/.gnupg
+            chmod 700 ~/.gnupg
+            printf 'allow-loopback-pinentry\n' >> ~/.gnupg/gpg-agent.conf
+            gpgconf --kill gpg-agent
+            printf '%s' "$BTX_RELEASE_GPG_PASSPHRASE" > ~/.gnupg/passphrase
+            chmod 600 ~/.gnupg/passphrase
+          fi
+
+      - name: Sign desktop artifacts
+        env:
+          BTX_GPG_KEY_ID: ${{ secrets.BTX_RELEASE_GPG_KEY_ID }}
+          BTX_RELEASE_GPG_PASSPHRASE: ${{ secrets.BTX_RELEASE_GPG_PASSPHRASE }}
+        run: |
+          if [ -n "$BTX_RELEASE_GPG_PASSPHRASE" ]; then
+            BTX_GPG_PASSPHRASE_FILE="$HOME/.gnupg/passphrase" bash scripts/sign-release-artifacts.sh artifacts
+          else
+            bash scripts/sign-release-artifacts.sh artifacts
+          fi
+
+      - name: Verify desktop signatures and sums
+        run: bash scripts/verify-release-artifacts.sh artifacts
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.inputs.release_tag || github.ref_name }}
+        run: |
+          gh release view "$RELEASE_TAG" >/dev/null 2>&1 || gh release create "$RELEASE_TAG" --title "BTX Wallet $RELEASE_TAG" --notes-file DESKTOP-RELEASE-CHECKLIST.md
+          gh release upload "$RELEASE_TAG" artifacts/* DESKTOP-RELEASE-CHECKLIST.md --clobber
