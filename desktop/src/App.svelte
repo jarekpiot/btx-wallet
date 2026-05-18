@@ -14,7 +14,12 @@
     viewShielded
   } from "./lib/api";
   import { formatBtx, isLoopbackRpc } from "./lib/format";
-  import type { Overview, RpcConfig, ShieldedNoteSummary, WalletMode } from "./lib/types";
+  import {
+    buildShieldedSendGuidance,
+    consolidationCopy,
+    shieldedComplexityLabel
+  } from "./lib/shielded";
+  import type { Overview, RpcConfig, WalletMode } from "./lib/types";
   import ModeSwitch from "./components/ModeSwitch.svelte";
   import TransactionList from "./components/TransactionList.svelte";
 
@@ -65,6 +70,8 @@
   const shieldedSendGuidance = $derived(
     walletReady ? buildShieldedSendGuidance(sendAmount, shieldedBalance, shieldedNoteSummary) : []
   );
+  const shieldedNoteStatus = $derived(shieldedComplexityLabel(shieldedNoteSummary, walletReady));
+  const shieldedConsolidationCopy = $derived(consolidationCopy(shieldedNoteSummary));
 
   function clearMessages() {
     error = "";
@@ -200,45 +207,6 @@
     refresh();
   });
 
-  function buildShieldedSendGuidance(
-    amount: string,
-    balance: number,
-    summary?: ShieldedNoteSummary
-  ): string[] {
-    const guidance: string[] = [];
-    const requested = Number(amount);
-    if (!summary?.available) {
-      guidance.push(
-        "Shielded note detail is unavailable. Large sends may still work, but a local synced node gives better reliability checks."
-      );
-      return guidance;
-    }
-
-    if (summary.complexity === "high") {
-      guidance.push("High note count: large shielded sends may fail or take longer to build.");
-    } else if (summary.complexity === "medium") {
-      guidance.push("Moderate note fragmentation: consider consolidating before a large payment.");
-    }
-
-    if (Number.isFinite(requested) && requested > 0) {
-      if (requested > balance) {
-        guidance.push("The requested amount is larger than the current shielded balance.");
-      } else if (summary.largestNote > 0 && requested > summary.largestNote * 4) {
-        guidance.push(
-          "This amount is much larger than the largest shielded note, so the node may need many notes to build it."
-        );
-      }
-      if (requested > balance * 0.9) {
-        guidance.push("Sending almost the full shielded balance can leave too little room for fees.");
-      }
-    }
-
-    if (summary.immatureCount > 0) {
-      guidance.push("Some shielded notes are still waiting for confirmations.");
-    }
-
-    return [...new Set(guidance)];
-  }
 </script>
 
 <main>
@@ -326,13 +294,7 @@
         </div>
         <div>
           <span>Shielded notes</span>
-          <strong>
-            {shieldedNoteSummary?.available
-              ? `${shieldedNoteSummary.complexity} complexity`
-              : walletReady
-                ? "Unknown"
-                : "Unavailable"}
-          </strong>
+          <strong>{shieldedNoteStatus}</strong>
         </div>
       </section>
 
@@ -405,7 +367,7 @@
             {/if}
             <div class="consolidation">
               <h3>Consolidate notes</h3>
-              <p>Send shielded BTX back to a fresh address in this wallet to reduce fragmentation.</p>
+              <p>{shieldedConsolidationCopy}</p>
               <label>
                 Amount to consolidate
                 <input bind:value={consolidationAmount} inputmode="decimal" placeholder="0.00000000" />
