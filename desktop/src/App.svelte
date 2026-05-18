@@ -26,7 +26,11 @@
   import {
     buildShieldedSendGuidance,
     consolidationCopy,
-    shieldedComplexityLabel
+    consolidationExpectations,
+    shieldedComplexityLabel,
+    shieldedRiskLabel,
+    shieldedRiskLevel,
+    suggestedConsolidationAmount
   } from "./lib/shielded";
   import type { Overview, RpcConfig, WalletMode } from "./lib/types";
   import ModeSwitch from "./components/ModeSwitch.svelte";
@@ -83,6 +87,12 @@
   );
   const shieldedNoteStatus = $derived(shieldedComplexityLabel(shieldedNoteSummary, walletReady));
   const shieldedConsolidationCopy = $derived(consolidationCopy(shieldedNoteSummary));
+  const shieldedRisk = $derived(shieldedRiskLevel(sendAmount, shieldedBalance, shieldedNoteSummary));
+  const shieldedRiskText = $derived(shieldedRiskLabel(shieldedRisk));
+  const shieldedConsolidationSuggestion = $derived(
+    suggestedConsolidationAmount(shieldedBalance, shieldedNoteSummary)
+  );
+  const shieldedConsolidationExpectations = $derived(consolidationExpectations(shieldedNoteSummary));
   const connectionMode = $derived(connectionModeLabel(rpcUrl, allowRemote));
   const syncStatus = $derived(syncStatusLabel(overview.node));
 
@@ -231,6 +241,12 @@
       notice = `Consolidation txid: ${result}`;
       consolidationAmount = "";
       await refresh();
+    }
+  }
+
+  function useSuggestedConsolidationAmount() {
+    if (shieldedConsolidationSuggestion) {
+      consolidationAmount = shieldedConsolidationSuggestion;
     }
   }
 
@@ -414,7 +430,7 @@
             </label>
           {/if}
           <button type="button" class="primary wide" onclick={handleSend} disabled={busy || !walletReady || locked}>
-            Send {walletMode === "shielded" ? "shielded" : "transparent"}
+            {busy ? "Submitting..." : `Send ${walletMode === "shielded" ? "shielded" : "transparent"}`}
           </button>
         </div>
         <div class="context-pane">
@@ -429,6 +445,10 @@
             <strong>{formatBtx(walletMode === "shielded" ? shieldedBalance : transparentBalance)} BTX</strong>
           </div>
           {#if walletMode === "shielded"}
+            <div class="risk-line" class:warning={shieldedRisk === "medium" || shieldedRisk === "unknown"} class:danger={shieldedRisk === "high"}>
+              <span>Send readiness</span>
+              <strong>{shieldedRiskText}</strong>
+            </div>
             <div class="note-health" class:warning={shieldedNoteSummary?.complexity === "medium"} class:danger={shieldedNoteSummary?.complexity === "high"}>
               <div>
                 <span>Shielded notes</span>
@@ -455,6 +475,14 @@
             <div class="consolidation">
               <h3>Consolidate notes</h3>
               <p>{shieldedConsolidationCopy}</p>
+              {#if shieldedConsolidationSuggestion}
+                <div class="suggestion-row">
+                  <span>Suggested amount: {shieldedConsolidationSuggestion} BTX</span>
+                  <button type="button" class="ghost compact" onclick={useSuggestedConsolidationAmount}>
+                    Use suggested
+                  </button>
+                </div>
+              {/if}
               <label>
                 Amount to consolidate
                 <input bind:value={consolidationAmount} inputmode="decimal" placeholder="0.00000000" />
@@ -464,8 +492,13 @@
                 <input bind:value={consolidationComment} maxlength="80" />
               </label>
               <button type="button" class="ghost wide" onclick={handleConsolidateShielded} disabled={busy || !walletReady || locked || !consolidationAmount.trim()}>
-                Consolidate shielded notes
+                {busy ? "Consolidating..." : "Consolidate shielded notes"}
               </button>
+              <div class="expectations">
+                {#each shieldedConsolidationExpectations as item}
+                  <span>{item}</span>
+                {/each}
+              </div>
             </div>
           {/if}
         </div>

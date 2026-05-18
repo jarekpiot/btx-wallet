@@ -310,6 +310,19 @@ fn explain_rpc_error(message: &str) -> String {
         || lower.contains("unlock")
     {
         Some("Unlock the wallet temporarily in Settings, then try again.")
+    } else if lower.contains("too many")
+        || lower.contains("limit")
+        || lower.contains("transaction too large")
+        || lower.contains("too large")
+    {
+        Some("This shielded send may require too many notes. Try consolidating first, or split the payment into smaller shielded sends.")
+    } else if lower.contains("no spendable")
+        || lower.contains("spendable note")
+        || lower.contains("no notes")
+    {
+        Some("Wait for confirmations, refresh the wallet, and check shielded note health before retrying.")
+    } else if lower.contains("fee") || lower.contains("dust") {
+        Some("Leave more BTX available for fees, or try a slightly smaller shielded amount.")
     } else if lower.contains("insufficient") || lower.contains("not enough") {
         Some("Check the available balance and fee reserve. For shielded sends, fragmented notes may need consolidation first.")
     } else if lower.contains("note") || lower.contains("anchor") || lower.contains("witness") {
@@ -1055,6 +1068,14 @@ mod tests {
         let message = explain_rpc_error("Insufficient funds");
         assert!(message.contains("What to try"));
         assert!(message.contains("consolidation"));
+    }
+
+    #[test]
+    fn shielded_limit_errors_suggest_consolidating_or_splitting() {
+        let message = explain_rpc_error("transaction too large");
+        assert!(message.contains("What to try"));
+        assert!(message.contains("consolidating"));
+        assert!(message.contains("split"));
     }
 
     #[test]

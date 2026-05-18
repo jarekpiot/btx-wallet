@@ -4,7 +4,11 @@ import test from "node:test";
 import {
   buildShieldedSendGuidance,
   consolidationCopy,
-  shieldedComplexityLabel
+  consolidationExpectations,
+  shieldedComplexityLabel,
+  shieldedRiskLabel,
+  shieldedRiskLevel,
+  suggestedConsolidationAmount
 } from "../src/lib/shielded.js";
 
 const highFragmentation = {
@@ -22,7 +26,7 @@ const highFragmentation = {
 test("shielded guidance warns on high note count and large amount", () => {
   const guidance = buildShieldedSendGuidance("5", 12, highFragmentation);
   assert.match(guidance.join("\n"), /High note count/);
-  assert.match(guidance.join("\n"), /largest shielded note/);
+  assert.match(guidance.join("\n"), /roughly 5 or more notes/);
   assert.match(guidance.join("\n"), /consolidating/);
 });
 
@@ -41,4 +45,17 @@ test("shielded status and consolidation copy stay user-facing", () => {
   assert.equal(shieldedComplexityLabel(highFragmentation, true), "High complexity");
   assert.match(consolidationCopy(highFragmentation), /normal shielded self-send/);
   assert.equal(shieldedComplexityLabel(undefined, false), "Unavailable");
+});
+
+test("shielded risk labels summarize send attention level", () => {
+  assert.equal(shieldedRiskLevel("5", 12, highFragmentation), "high");
+  assert.equal(shieldedRiskLabel("high"), "High attention");
+  assert.equal(shieldedRiskLabel("low"), "Looks normal");
+});
+
+test("consolidation helper suggests a fee-aware amount and expectations", () => {
+  assert.equal(suggestedConsolidationAmount(10, highFragmentation), "9.00000000");
+  assert.equal(suggestedConsolidationAmount(10, { ...highFragmentation, complexity: "low" }), "");
+  assert.match(consolidationExpectations(highFragmentation).join("\n"), /fresh shielded address/);
+  assert.match(consolidationExpectations(highFragmentation).join("\n"), /many tiny notes/);
 });

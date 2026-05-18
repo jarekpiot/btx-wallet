@@ -517,9 +517,35 @@ textarea:focus {
 
 .note-health,
 .guidance,
-.consolidation {
+.consolidation,
+.risk-line {
   margin-top: 14px;
   border-radius: 8px;
+}
+
+.risk-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid #bddfc8;
+  background: #f1faf4;
+}
+
+.risk-line.warning {
+  border-color: #dfd0a8;
+  background: #fff9ea;
+}
+
+.risk-line.danger {
+  border-color: #efb5b5;
+  background: #fff0f0;
+}
+
+.risk-line span {
+  color: #5f7167;
+  font-size: 13px;
 }
 
 .note-health {
@@ -543,7 +569,9 @@ textarea:focus {
 .note-health span,
 .guidance p,
 .consolidation p,
-.note-stats span {
+.note-stats span,
+.suggestion-row span,
+.expectations span {
   color: #5f7167;
   font-size: 13px;
 }
@@ -578,6 +606,41 @@ textarea:focus {
 
 .consolidation h3 {
   margin-top: 0;
+}
+
+.suggestion-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 14px 0;
+  padding: 12px;
+  border: 1px solid #dfe8e2;
+  border-radius: 8px;
+  background: #f7faf8;
+}
+
+.expectations {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.expectations span {
+  position: relative;
+  padding-left: 14px;
+  line-height: 1.4;
+}
+
+.expectations span::before {
+  position: absolute;
+  left: 0;
+  content: "";
+  width: 6px;
+  height: 6px;
+  margin-top: 6px;
+  border-radius: 99px;
+  background: #8aa495;
 }
 
 .tx-list {
