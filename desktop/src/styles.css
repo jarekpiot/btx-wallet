@@ -272,7 +272,9 @@ h3 {
 .field-note,
 .saved-nodes > span,
 .saved-node span,
-.connection-card span {
+.connection-card span,
+.flow-status span,
+.empty-state p {
   color: #6d7e74;
   font-size: 13px;
 }
@@ -365,6 +367,43 @@ h3 {
 .field-note {
   margin-top: 10px;
   line-height: 1.45;
+}
+
+.empty-state {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+  border: 1px solid #dfe8e2;
+  border-radius: 8px;
+  background: #f7faf8;
+}
+
+.empty-state.compact {
+  padding: 14px;
+}
+
+.empty-state h3 {
+  margin: 0;
+}
+
+.empty-state p {
+  line-height: 1.45;
+}
+
+.empty-state.action-state {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.flow-status {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid #dfe8e2;
+  border-radius: 8px;
+  background: #f7faf8;
 }
 
 .balance-panel,
@@ -680,13 +719,6 @@ textarea:focus {
   text-align: right;
 }
 
-.empty {
-  padding: 18px;
-  border-radius: 8px;
-  background: #f7faf8;
-  color: #6d7e74;
-}
-
 .divider {
   height: 1px;
   margin: 20px 0;
@@ -749,6 +781,10 @@ pre {
   .form-row {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .empty-state.action-state {
+    grid-template-columns: 1fr;
   }
 
   .actions button {

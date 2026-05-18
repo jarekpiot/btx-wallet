@@ -3,10 +3,15 @@
   import type { TransactionItem } from "../lib/types";
 
   export let transactions: TransactionItem[] = [];
+  export let emptyTitle = "No wallet transactions loaded";
+  export let emptyBody = "Transactions will appear here after the connected node reports wallet activity.";
 </script>
 
 {#if transactions.length === 0}
-  <div class="empty">No wallet transactions loaded.</div>
+  <div class="empty-state compact">
+    <h3>{emptyTitle}</h3>
+    <p>{emptyBody}</p>
+  </div>
 {:else}
   <div class="tx-list">
     {#each transactions as tx}

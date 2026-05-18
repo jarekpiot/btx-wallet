@@ -33,6 +33,12 @@
     shieldedRiskLevel,
     suggestedConsolidationAmount
   } from "./lib/shielded";
+  import {
+    historyEmptyCopy,
+    receiveEmptyCopy,
+    sendBlockReason,
+    sendButtonLabel
+  } from "./lib/ui";
   import type { Overview, RpcConfig, WalletMode } from "./lib/types";
   import ModeSwitch from "./components/ModeSwitch.svelte";
   import TransactionList from "./components/TransactionList.svelte";
@@ -97,6 +103,20 @@
   const shieldedConsolidationExpectations = $derived(consolidationExpectations(shieldedNoteSummary));
   const connectionMode = $derived(connectionModeLabel(rpcUrl, allowRemote));
   const syncStatus = $derived(syncStatusLabel(overview.node));
+  const currentSendBlockReason = $derived(sendBlockReason({
+    connected,
+    walletReady,
+    locked,
+    address: sendAddress,
+    amount: sendAmount
+  }));
+  const currentSendButtonLabel = $derived(sendButtonLabel({
+    busy,
+    mode: walletMode,
+    blockReason: currentSendBlockReason
+  }));
+  const currentReceiveEmpty = $derived(receiveEmptyCopy(walletMode, walletReady));
+  const currentHistoryEmpty = $derived(historyEmptyCopy(walletReady));
 
   function clearMessages() {
     error = "";
@@ -428,6 +448,14 @@
         </div>
       </section>
 
+      {#if connected && !walletReady}
+        <section class="empty-state action-state">
+          <h3>Node connected, wallet not loaded</h3>
+          <p>Create an encrypted descriptor wallet or restore an official BTX backup to start sending and receiving.</p>
+          <button type="button" class="primary" onclick={() => (selected = "settings")}>Open wallet settings</button>
+        </section>
+      {/if}
+
       <section class="status-grid">
         <div>
           <span>Wallet</span>
@@ -456,7 +484,11 @@
           <h2>Recent Activity</h2>
           <button type="button" class="ghost" onclick={() => (selected = "history")}>View all</button>
         </div>
-        <TransactionList transactions={overview.transactions.slice(0, 6)} />
+        <TransactionList
+          transactions={overview.transactions.slice(0, 6)}
+          emptyTitle={currentHistoryEmpty.title}
+          emptyBody={currentHistoryEmpty.body}
+        />
       </section>
     {/if}
 
@@ -464,6 +496,12 @@
       <section class="panel split">
         <div>
           <h2>Send BTX</h2>
+          {#if currentSendBlockReason}
+            <div class="flow-status">
+              <strong>Before you send</strong>
+              <span>{currentSendBlockReason}</span>
+            </div>
+          {/if}
           <ModeSwitch bind:value={walletMode} />
           <label>
             Recipient
@@ -479,8 +517,8 @@
               <input bind:value={sendComment} maxlength="80" placeholder="Optional local-only comment" />
             </label>
           {/if}
-          <button type="button" class="primary wide" onclick={handleSend} disabled={busy || !walletReady || locked}>
-            {busy ? "Submitting..." : `Send ${walletMode === "shielded" ? "shielded" : "transparent"}`}
+          <button type="button" class="primary wide" onclick={handleSend} disabled={busy || Boolean(currentSendBlockReason)}>
+            {currentSendButtonLabel}
           </button>
         </div>
         <div class="context-pane">
@@ -567,6 +605,12 @@
             Address
             <textarea readonly rows="6" value={receiveAddress}></textarea>
           </label>
+          {#if !receiveAddress}
+            <div class="empty-state compact">
+              <h3>{currentReceiveEmpty.title}</h3>
+              <p>{currentReceiveEmpty.body}</p>
+            </div>
+          {/if}
         </div>
         <div class="context-pane">
           <h3>Address safety</h3>
@@ -581,7 +625,11 @@
           <h2>Transaction History</h2>
           <button type="button" class="ghost" onclick={refresh} disabled={busy}>Refresh</button>
         </div>
-        <TransactionList transactions={overview.transactions} />
+        <TransactionList
+          transactions={overview.transactions}
+          emptyTitle={currentHistoryEmpty.title}
+          emptyBody={currentHistoryEmpty.body}
+        />
       </section>
       <section class="panel">
         <h2>Selective Disclosure</h2>
