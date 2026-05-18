@@ -15,6 +15,7 @@
     viewShielded
   } from "./lib/api";
   import { formatBtx, isLoopbackRpc } from "./lib/format";
+  import { friendlyError, successMessage } from "./lib/messages";
   import {
     connectionModeLabel,
     deleteNodeProfile,
@@ -42,6 +43,7 @@
   let busy = $state(false);
   let error = $state("");
   let notice = $state("");
+  let pendingMessage = $state("");
   let savedNodes = $state<Array<{ id: string; label: string; url: string; wallet: string; allowRemote: boolean }>>([]);
   let nodeLabel = $state("Local BTX node");
 
@@ -101,23 +103,33 @@
     notice = "";
   }
 
-  async function run<T>(operation: () => Promise<T>, success?: string): Promise<T | undefined> {
+  type RunOptions = {
+    success?: string;
+    pending?: string;
+    failureContext?: string;
+  };
+
+  async function run<T>(operation: () => Promise<T>, options?: string | RunOptions): Promise<T | undefined> {
+    const config = typeof options === "string" ? { success: options } : (options ?? {});
     clearMessages();
     busy = true;
+    pendingMessage = config.pending ?? "";
     try {
       const result = await operation();
-      if (success) notice = success;
+      if (config.success) notice = config.success;
       return result;
     } catch (err) {
-      error = err instanceof Error ? err.message : String(err);
+      const raw = err instanceof Error ? err.message : String(err);
+      error = friendlyError(raw, config.failureContext);
       return undefined;
     } finally {
       busy = false;
+      pendingMessage = "";
     }
   }
 
   async function refresh() {
-    const result = await run(() => getOverview());
+    const result = await run(() => getOverview(), { failureContext: "connect" });
     if (result) overview = result;
   }
 
@@ -130,7 +142,11 @@
       wallet: walletName.trim() || undefined,
       allowRemote
     };
-    const result = await run(() => configureConnection(config), "Connected to BTX node.");
+    const result = await run(() => configureConnection(config), {
+      pending: "Connecting to BTX node...",
+      success: "Connected to BTX node.",
+      failureContext: "connect"
+    });
     if (result) {
       overview = result;
       rpcPassword = "";
@@ -175,7 +191,11 @@
   async function handleCreateWallet() {
     const result = await run(
       () => createWallet(newWalletName.trim(), newWalletPassphrase),
-      "Encrypted descriptor wallet created."
+      {
+        pending: "Creating encrypted wallet through BTX core...",
+        success: "Encrypted descriptor wallet created.",
+        failureContext: "wallet"
+      }
     );
     if (result) {
       overview = result;
@@ -187,7 +207,11 @@
   async function handleRestoreWallet() {
     const result = await run(
       () => restoreWallet(restoreName.trim(), restorePath.trim()),
-      "Wallet restored from official BTX backup."
+      {
+        pending: "Restoring wallet through BTX core...",
+        success: "Wallet restored from official BTX backup.",
+        failureContext: "wallet"
+      }
     );
     if (result) {
       overview = result;
@@ -199,7 +223,11 @@
   async function handleUnlock() {
     const result = await run(
       () => unlockWallet(unlockPassphrase, Number(unlockSeconds)),
-      "Wallet unlocked temporarily."
+      {
+        pending: "Unlocking wallet temporarily...",
+        success: "Wallet unlocked temporarily.",
+        failureContext: "wallet"
+      }
     );
     if (result) {
       overview = result;
@@ -208,12 +236,16 @@
   }
 
   async function handleLock() {
-    const result = await run(() => lockWallet(), "Wallet locked.");
+    const result = await run(() => lockWallet(), { success: "Wallet locked.", failureContext: "wallet" });
     if (result) overview = result;
   }
 
   async function handleNewAddress() {
-    const result = await run(() => newAddress(walletMode), `${walletMode} address created.`);
+    const result = await run(() => newAddress(walletMode), {
+      pending: `Creating ${walletMode} receive address...`,
+      success: `${walletMode} address created.`,
+      failureContext: "receive"
+    });
     if (result) receiveAddress = result;
   }
 
@@ -222,9 +254,14 @@
       walletMode === "shielded"
         ? () => sendShielded(sendAddress.trim(), sendAmount.trim(), sendComment.trim())
         : () => sendTransparent(sendAddress.trim(), sendAmount.trim());
-    const result = await run(operation, "Transaction submitted.");
+    const result = await run(operation, {
+      pending: walletMode === "shielded"
+        ? "Submitting shielded transaction through BTX core..."
+        : "Submitting transparent transaction...",
+      failureContext: walletMode === "shielded" ? "shieldedSend" : "transparentSend"
+    });
     if (result) {
-      notice = `${walletMode === "shielded" ? "Shielded" : "Transparent"} txid: ${result}`;
+      notice = successMessage(walletMode === "shielded" ? "shieldedSend" : "transparentSend", result);
       sendAddress = "";
       sendAmount = "";
       sendComment = "";
@@ -235,10 +272,13 @@
   async function handleConsolidateShielded() {
     const result = await run(
       () => consolidateShielded(consolidationAmount.trim(), consolidationComment.trim()),
-      "Shielded note consolidation submitted."
+      {
+        pending: "Submitting shielded consolidation through BTX core...",
+        failureContext: "consolidate"
+      }
     );
     if (result) {
-      notice = `Consolidation txid: ${result}`;
+      notice = successMessage("consolidate", result);
       consolidationAmount = "";
       await refresh();
     }
@@ -251,14 +291,21 @@
   }
 
   async function handleDisclosure() {
-    const result = await run(() => viewShielded(disclosureTxid.trim(), includeSensitive));
+    const result = await run(() => viewShielded(disclosureTxid.trim(), includeSensitive), {
+      pending: "Loading shielded transaction details...",
+      failureContext: "disclosure"
+    });
     if (result) disclosureResult = JSON.stringify(result, null, 2);
   }
 
   async function handleBackup() {
     const result = await run(
       () => backupBundle(backupDir.trim(), walletPassphrase, archivePath.trim(), archivePassphrase),
-      "Backup export completed."
+      {
+        pending: "Creating backup through BTX core...",
+        success: "Backup export completed.",
+        failureContext: "backup"
+      }
     );
     if (result) {
       notice = `Backup complete: ${JSON.stringify(result, null, 2)}`;
@@ -323,6 +370,9 @@
 
     {#if error}
       <div class="alert danger">{error}</div>
+    {/if}
+    {#if pendingMessage}
+      <div class="alert info">{pendingMessage}</div>
     {/if}
     {#if notice}
       <div class="alert success">{notice}</div>

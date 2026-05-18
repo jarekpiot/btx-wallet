@@ -323,6 +323,15 @@ fn explain_rpc_error(message: &str) -> String {
         Some("Wait for confirmations, refresh the wallet, and check shielded note health before retrying.")
     } else if lower.contains("fee") || lower.contains("dust") {
         Some("Leave more BTX available for fees, or try a slightly smaller shielded amount.")
+    } else if lower.contains("mempool") || lower.contains("broadcast") || lower.contains("rejected")
+    {
+        Some("The transaction was built but not accepted for broadcast. Refresh the wallet, confirm the node is synced, and retry with a smaller amount if needed.")
+    } else if lower.contains("rescan")
+        || lower.contains("scanning")
+        || lower.contains("scan")
+        || lower.contains("sync")
+    {
+        Some("Let the node finish syncing or wallet scanning, then refresh the wallet before retrying shielded operations.")
     } else if lower.contains("insufficient") || lower.contains("not enough") {
         Some("Check the available balance and fee reserve. For shielded sends, fragmented notes may need consolidation first.")
     } else if lower.contains("note") || lower.contains("anchor") || lower.contains("witness") {
@@ -1076,6 +1085,13 @@ mod tests {
         assert!(message.contains("What to try"));
         assert!(message.contains("consolidating"));
         assert!(message.contains("split"));
+    }
+
+    #[test]
+    fn shielded_broadcast_errors_suggest_sync_and_retry() {
+        let message = explain_rpc_error("mempool rejected transaction");
+        assert!(message.contains("What to try"));
+        assert!(message.contains("not accepted for broadcast"));
     }
 
     #[test]

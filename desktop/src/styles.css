@@ -227,6 +227,13 @@ h3 {
   border: 1px solid #efb5b5;
   background: #fff0f0;
   color: #8f2929;
+  white-space: pre-wrap;
+}
+
+.alert.info {
+  border: 1px solid #c8d8e8;
+  background: #f0f6fb;
+  color: #24506f;
 }
 
 .alert.success {
