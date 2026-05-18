@@ -4,7 +4,7 @@ Release tag: `v0.2.0-light`
 
 Release URL: <https://github.com/jarekpiot/btx-wallet/releases/tag/v0.2.0-light>
 
-Successful workflow run: <https://github.com/jarekpiot/btx-wallet/actions/runs/26028649197>
+Successful workflow run: <https://github.com/jarekpiot/btx-wallet/actions/runs/26029737954>
 
 Review date: 2026-05-18
 
@@ -57,12 +57,12 @@ Functional note: Phase 1 is a light-client control surface over trusted BTX JSON
 Release GPG fingerprint: `599F9E7A4192E1BD7CEBA82ABB9A6F689BB11C30`
 
 ```text
-1fb5b5175523cbf5fed4c66de755c1c4dcba5e47ceff72bcb953a769e866f70f  btx-wallet-v0.2.0-light-linux-x86_64-BTX.Wallet.Light-0.2.0-1.x86_64.rpm
-869c2208eafffb53861491d2ef7b14798ef103885bc51747a8d96eaeda76e22b  btx-wallet-v0.2.0-light-linux-x86_64-BTX.Wallet.Light_0.2.0_amd64.AppImage
-17f84fe7b952ce92de50145cfd08ebaaa2fedf12413e44766a574e92b11a187f  btx-wallet-v0.2.0-light-linux-x86_64-BTX.Wallet.Light_0.2.0_amd64.deb
-1b983fd486306a42235d9f6a4b6cafe3b40c617aa8302e4185b307cb90bea1aa  btx-wallet-v0.2.0-light-macos-arm64-BTX.Wallet.Light_0.2.0_aarch64.dmg
-3c1898bbc5bf7c15b1f4e8707e060057db3cc4e2bcc22984edc5a5b174524b59  btx-wallet-v0.2.0-light-windows-x86_64-BTX.Wallet.Light_0.2.0_x64-setup.exe
-d5f9debe102fd72ca8c9cb639f419066aadf303b4cf621632e950da945f63efe  btx-wallet-v0.2.0-light-windows-x86_64-BTX.Wallet.Light_0.2.0_x64_en-US.msi
+5e73ec87e0664044ba7c238f4bb6022d644116e900b96f9a9716d02ca0926d46  btx-wallet-v0.2.0-light-linux-x86_64-BTX.Wallet.Light-0.2.0-1.x86_64.rpm
+8ca467b05aa93fc6f048d4751d9054d3920255f29df85ef6989050e25d139d69  btx-wallet-v0.2.0-light-linux-x86_64-BTX.Wallet.Light_0.2.0_amd64.AppImage
+6159201a1a59eb36b76339333b0109e89dd0c859321eb6c20d1e6b2c44c6168b  btx-wallet-v0.2.0-light-linux-x86_64-BTX.Wallet.Light_0.2.0_amd64.deb
+553eaf8b570336c53f954ce251bb62ecb94652045c28857068a1436ddf938dc5  btx-wallet-v0.2.0-light-macos-arm64-BTX.Wallet.Light_0.2.0_aarch64.dmg
+abe1455f8561e97953ca33d53522eb162086ef4f5bd43b2ef9d0fbfead53c57f  btx-wallet-v0.2.0-light-windows-x86_64-BTX.Wallet.Light_0.2.0_x64-setup.exe
+3adf95f387f9036d47eb4ab1ffc87a7785e9a4f23506056ff8d30abfeffb5804  btx-wallet-v0.2.0-light-windows-x86_64-BTX.Wallet.Light_0.2.0_x64_en-US.msi
 ```
 
 Public release verification was run from a fresh download directory:
@@ -72,6 +72,7 @@ SHA256SUMS.asc: Good signature from "BTX Wallet Release <security@btx.dev>"
 All six published desktop artifact hashes matched SHA256SUMS.
 All six detached artifact signatures verified successfully.
 desktop_release_verification=PASS
+hardened_desktop_release_verification=PASS
 ```
 
 ## Blank Window Fix Verification
