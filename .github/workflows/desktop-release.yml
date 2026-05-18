@@ -80,7 +80,8 @@ jobs:
             -name '*.AppImage' -o -name '*.deb' -o -name '*.rpm' \
           \) -print | sort | while IFS= read -r file; do
             base="$(basename "$file")"
-            cp "$file" "artifacts/btx-wallet-${{ github.event.inputs.release_tag || github.ref_name }}-${{ matrix.platform }}-${base}"
+            safe_base="$(printf '%s' "$base" | tr ' ' '.')"
+            cp "$file" "artifacts/btx-wallet-${{ github.event.inputs.release_tag || github.ref_name }}-${{ matrix.platform }}-${safe_base}"
           done
           test "$(find artifacts -type f | wc -l)" -gt 0
 
