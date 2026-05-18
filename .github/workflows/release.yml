@@ -68,9 +68,9 @@ jobs:
           BTX_USE_DEPENDS: "1"
           BTX_BUILD_DEPLOY: "1"
           BTX_ARTIFACT_DIR: artifacts-pass1
-          BTX_WORK_DIR: .work-pass1
+          BTX_WORK_DIR: .work
         run: |
-          rm -rf .work-pass1 .work-pass2 artifacts-pass1 artifacts-pass2 artifacts
+          rm -rf .work artifacts-pass1 artifacts-pass2 artifacts
           bash scripts/build-qt-wallet.sh
 
       - name: Build deterministic artifact pass 2
@@ -81,8 +81,10 @@ jobs:
           BTX_USE_DEPENDS: "1"
           BTX_BUILD_DEPLOY: "1"
           BTX_ARTIFACT_DIR: artifacts-pass2
-          BTX_WORK_DIR: .work-pass2
-        run: bash scripts/build-qt-wallet.sh
+          BTX_WORK_DIR: .work
+        run: |
+          rm -rf .work
+          bash scripts/build-qt-wallet.sh
 
       - name: Compare reproducible artifact hashes
         run: |
