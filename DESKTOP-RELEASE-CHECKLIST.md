@@ -150,6 +150,68 @@ Desktop residual risks:
 - Release artifacts are GPG-signed and SHA256-verified. Windows Authenticode signing and Apple notarization are not yet implemented.
 - macOS and Linux GUI launch remain CI build/signature verified but not manually opened in this Windows review environment.
 
+## Phase 1.5 / Phase 2 Focused Security Delta Review
+
+Review date: 2026-05-19
+
+Scope: targeted review of new desktop logic added after the original Phase 1 review: onboarding and saved node profiles, shielded note health and send-readiness guidance, note consolidation UI flow, improved error messages, loading/empty states, and send button blocking. BTX consensus, SMILE v2 internals, ML-DSA, SLH-DSA, wallet cryptography, and note-spending logic remain official BTX core scope.
+
+Findings and fixes applied:
+
+- [x] Tauri permissions remain minimal: `core:default` only; no filesystem, shell, dialog, updater, clipboard, notification, or HTTP plugin permissions were added.
+- [x] `withGlobalTauri` remains disabled and the CSP remains app-local with Tauri IPC only.
+- [x] New shielded note-health, risk-label, send-readiness, empty-state, and guidance logic is frontend display logic only. It does not create keys, sign, prove, encrypt, decrypt, select notes, or implement wallet-layer cryptography.
+- [x] Shielded note health uses aggregate RPC data only (`z_listunspent`) and shows counts, fragmentation guidance, and largest-note style summaries. It does not expose note secrets, nullifiers, spending keys, or shielded addresses in the UI.
+- [x] Note consolidation remains an official BTX RPC flow: request a fresh shielded address with `z_getnewaddress`, then submit a self-send with `z_sendtoaddress`. The desktop app does not build shielded transactions itself.
+- [x] Send button readiness is UX gating only. Backend validation remains authoritative for URL, wallet, amount, address mode, passphrase, address, comment, txid, and path bounds.
+- [x] Improved error and "What to try" messages use static text and Svelte text bindings; no `{@html}`, `innerHTML`, `eval`, `new Function`, clipboard access, direct frontend network calls, or WebSocket use was found.
+- [x] Onboarding saved node profiles are now hardened. The app persists only bounded public fields (`id`, `label`, `url`, `wallet`, `allowRemote`) and rejects saved URLs with embedded credentials, query strings, fragments, or non-HTTP(S) schemes.
+- [x] Legacy unsafe saved node profiles are dropped when loaded or rewritten.
+- [x] RPC username, RPC password, cookie path/content, and wallet passphrases are not saved in node profiles or local storage. The visible RPC password and passphrase fields continue to be cleared after successful sensitive operations where applicable.
+- [x] No telemetry, analytics, updater phone-home, bundled remote logging, direct frontend `fetch`, or background network client was introduced.
+- [x] No new wallet-layer cryptographic implementation was introduced.
+
+Focused review proof:
+
+```text
+npm test: 26 passed, 0 failed
+npm run build: vite production build passed
+cargo test: 13 passed, 0 failed
+cargo fmt --check: passed
+npm audit --audit-level=moderate: found 0 vulnerabilities
+scripts/verify-no-new-crypto.sh: No wallet-layer cryptographic implementation found
+rg review: no frontend HTML injection, direct fetch, WebSocket, clipboard, telemetry, updater, shell, or Tauri fs/dialog/http permissions found
+rg review: localStorage use is limited to sanitized saved node profiles; Rust fs use is limited to optional RPC cookie reading
+npm run tauri:build: produced Windows MSI and NSIS bundles
+desktop_light_launch=PASS
+```
+
+Fix verification:
+
+```text
+saved node profiles reject credential-bearing URLs
+saved node profiles reject secret-like URL extras
+saved node profiles only allow HTTP and HTTPS URLs
+saved node profiles drop legacy unsafe entries from storage
+```
+
+Phase 1.5 / Phase 2 residual risks:
+
+- Saved node profiles intentionally use browser `localStorage` for public metadata. A local OS account with profile access may see saved node URLs, labels, wallet labels, and the remote-node opt-in flag. The app does not store RPC credentials, cookie paths, cookie contents, or passphrases.
+- RPC credentials and wallet passphrases still exist briefly in the Svelte webview state, Tauri IPC payloads, Rust process memory, and BTX RPC request path while commands run. They are cleared from visible fields after successful sensitive operations, but memory zeroization is not implemented.
+- Remote `btxd` trust remains the largest light-client risk. A malicious or compromised remote node can misreport balances/history and observe RPC metadata. Users should prefer a local `btxd` or a trusted HTTPS endpoint.
+- Shielded note health and consolidation readiness are guidance heuristics. The BTX core remains authoritative for note selection, fees, proving, signing, and final broadcast success.
+- `z_listunspent` availability and detail quality depend on the connected node version and wallet state. Unknown note health is shown as a degraded state, not as a hard security failure.
+- Windows package launch was verified locally. macOS and Linux GUI launch remain CI build/signature verified but were not manually opened in this Windows review environment.
+
+Practical recommendations:
+
+- Keep saved profiles limited to public metadata unless OS keychain support is added for credentials.
+- Add a mocked or regtest `btxd` integration test for note-health, consolidation, and send-readiness edge cases before the next release.
+- Keep remote-node UX explicit: local node first, trusted HTTPS remote only with user opt-in.
+- Add Authenticode signing and Apple notarization when release infrastructure is ready.
+- Continue running this focused delta review after every change to saved profiles, passphrase handling, RPC routing, or shielded send/consolidation UX.
+
 ## Sign-Off
 
 Approver: automated Phase 1 desktop release gate

@@ -16,9 +16,24 @@ function trimBounded(value, max) {
   return String(value ?? "").trim().slice(0, max);
 }
 
+function sanitizeProfileUrl(value) {
+  const url = trimBounded(value, MAX_URL);
+  if (!url) return undefined;
+
+  try {
+    const parsed = new URL(url);
+    if (!["http:", "https:"].includes(parsed.protocol)) return undefined;
+    if (parsed.username || parsed.password) return undefined;
+    if (parsed.search || parsed.hash) return undefined;
+    return url;
+  } catch {
+    return undefined;
+  }
+}
+
 export function sanitizeNodeProfile(input) {
   const label = trimBounded(input?.label, MAX_LABEL) || "BTX node";
-  const url = trimBounded(input?.url, MAX_URL);
+  const url = sanitizeProfileUrl(input?.url);
   const wallet = trimBounded(input?.wallet, MAX_WALLET) || "main";
   const allowRemote = Boolean(input?.allowRemote);
 
@@ -47,10 +62,11 @@ export function loadSavedNodes(storage = globalThis.localStorage) {
 export function saveNodeProfile(profile, existing = [], storage = globalThis.localStorage) {
   const sanitized = sanitizeNodeProfile(profile);
   if (!sanitized) return existing;
+  const sanitizedExisting = existing.map(sanitizeNodeProfile).filter(Boolean);
 
   const profiles = [
     sanitized,
-    ...existing.filter((item) => item.id !== sanitized.id && item.url !== sanitized.url)
+    ...sanitizedExisting.filter((item) => item.id !== sanitized.id && item.url !== sanitized.url)
   ].slice(0, MAX_PROFILES);
 
   storage?.setItem(STORAGE_KEY, JSON.stringify(profiles));
@@ -58,7 +74,7 @@ export function saveNodeProfile(profile, existing = [], storage = globalThis.loc
 }
 
 export function deleteNodeProfile(id, existing = [], storage = globalThis.localStorage) {
-  const profiles = existing.filter((item) => item.id !== id);
+  const profiles = existing.map(sanitizeNodeProfile).filter(Boolean).filter((item) => item.id !== id);
   storage?.setItem(STORAGE_KEY, JSON.stringify(profiles));
   return profiles;
 }

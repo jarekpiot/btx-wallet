@@ -32,6 +32,33 @@ test("saved node profiles do not preserve credentials", () => {
   assert.deepEqual(Object.keys(profile).sort(), ["allowRemote", "id", "label", "url", "wallet"]);
 });
 
+test("saved node profiles reject credential-bearing URLs", () => {
+  assert.equal(
+    sanitizeNodeProfile({
+      label: "Remote",
+      url: "https://user:secret@node.example.com:18443",
+      allowRemote: true
+    }),
+    undefined
+  );
+});
+
+test("saved node profiles reject secret-like URL extras", () => {
+  assert.equal(
+    sanitizeNodeProfile({ label: "Remote", url: "https://node.example.com:18443/?token=secret" }),
+    undefined
+  );
+  assert.equal(
+    sanitizeNodeProfile({ label: "Remote", url: "https://node.example.com:18443/#token" }),
+    undefined
+  );
+});
+
+test("saved node profiles only allow HTTP and HTTPS URLs", () => {
+  assert.equal(sanitizeNodeProfile({ label: "Socket", url: "file:///tmp/btx.sock" }), undefined);
+  assert.equal(sanitizeNodeProfile({ label: "Script", url: "javascript:alert(1)" }), undefined);
+});
+
 test("saved node profiles persist bounded public connection fields", () => {
   const storage = memoryStorage();
   const profiles = saveNodeProfile(
@@ -42,6 +69,19 @@ test("saved node profiles persist bounded public connection fields", () => {
   assert.equal(profiles.length, 1);
   assert.equal(loadSavedNodes(storage)[0].label, "Local");
   assert.equal(deleteNodeProfile("one", profiles, storage).length, 0);
+});
+
+test("saved node profiles drop legacy unsafe entries from storage", () => {
+  const storage = memoryStorage({
+    "btx-wallet-light.nodes.v1": JSON.stringify([
+      { id: "safe", label: "Local", url: "http://127.0.0.1:18443", wallet: "main" },
+      { id: "unsafe", label: "Leaky", url: "https://user:secret@node.example.com:18443" }
+    ])
+  });
+
+  const profiles = loadSavedNodes(storage);
+  assert.equal(profiles.length, 1);
+  assert.equal(profiles[0].id, "safe");
 });
 
 test("connection labels are clear for local and remote nodes", () => {
