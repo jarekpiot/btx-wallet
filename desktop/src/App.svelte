@@ -94,7 +94,10 @@
       allowRemote
     };
     const result = await run(() => configureConnection(config), "Connected to BTX node.");
-    if (result) overview = result;
+    if (result) {
+      overview = result;
+      rpcPassword = "";
+    }
   }
 
   async function handleCreateWallet() {

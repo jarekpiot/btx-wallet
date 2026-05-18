@@ -7,6 +7,16 @@ use std::time::Duration;
 use tauri::State;
 use thiserror::Error;
 
+const MAX_RPC_URL_LEN: usize = 512;
+const MAX_RPC_CREDENTIAL_LEN: usize = 256;
+const MAX_WALLET_NAME_LEN: usize = 64;
+const MAX_WALLET_PASSPHRASE_LEN: usize = 1024;
+const MAX_PATH_LEN: usize = 1024;
+const MAX_ADDRESS_LEN: usize = 512;
+const MAX_COMMENT_LEN: usize = 80;
+const MAX_TXID_LEN: usize = 128;
+const MAX_BTX_AMOUNT: f64 = 21_000_000.0;
+
 #[derive(Debug, Error)]
 enum WalletError {
     #[error("{0}")]
@@ -84,6 +94,20 @@ struct RpcEnvelope {
 }
 
 fn validate_config(config: &RpcConfig) -> WalletResult<()> {
+    ensure_len("RPC URL", config.url.trim(), 1, MAX_RPC_URL_LEN)?;
+    if let Some(username) = &config.username {
+        ensure_len("RPC username", username, 0, MAX_RPC_CREDENTIAL_LEN)?;
+    }
+    if let Some(password) = &config.password {
+        ensure_len("RPC password", password, 0, MAX_RPC_CREDENTIAL_LEN)?;
+    }
+    if let Some(cookie_path) = &config.cookie_path {
+        ensure_len("RPC cookie path", cookie_path.trim(), 0, MAX_PATH_LEN)?;
+    }
+    if let Some(wallet) = &config.wallet {
+        validate_wallet_name(wallet)?;
+    }
+
     let parsed = reqwest::Url::parse(config.url.trim())
         .map_err(|_| WalletError::Message("RPC URL is not valid.".to_string()))?;
     match parsed.scheme() {
@@ -93,6 +117,16 @@ fn validate_config(config: &RpcConfig) -> WalletResult<()> {
                 "RPC URL must use http or https.".to_string(),
             ))
         }
+    }
+    if !parsed.username().is_empty() || parsed.password().is_some() {
+        return Err(WalletError::Message(
+            "Put RPC credentials in the username/password fields, not in the URL.".to_string(),
+        ));
+    }
+    if parsed.query().is_some() || parsed.fragment().is_some() {
+        return Err(WalletError::Message(
+            "RPC URL must not include query strings or fragments.".to_string(),
+        ));
     }
 
     let host = parsed.host_str().unwrap_or_default();
@@ -151,6 +185,62 @@ fn cookie_auth(config: &RpcConfig) -> WalletResult<Option<(String, String)>> {
         }
     }
     Ok(None)
+}
+
+fn ensure_len(label: &str, value: &str, min: usize, max: usize) -> WalletResult<()> {
+    let len = value.len();
+    if len < min || len > max {
+        return Err(WalletError::Message(format!(
+            "{label} length must be between {min} and {max} bytes."
+        )));
+    }
+    Ok(())
+}
+
+fn validate_wallet_name(wallet_name: &str) -> WalletResult<&str> {
+    let name = wallet_name.trim();
+    ensure_len("Wallet name", name, 1, MAX_WALLET_NAME_LEN)?;
+    if name.contains('/') || name.contains('\\') || name == "." || name == ".." {
+        return Err(WalletError::Message(
+            "Wallet name must be a simple name, not a path.".to_string(),
+        ));
+    }
+    Ok(name)
+}
+
+fn validate_path_input<'a>(label: &str, path: &'a str, required: bool) -> WalletResult<&'a str> {
+    let trimmed = path.trim();
+    ensure_len(label, trimmed, usize::from(required), MAX_PATH_LEN)?;
+    Ok(trimmed)
+}
+
+fn validate_address(address: &str) -> WalletResult<&str> {
+    let trimmed = address.trim();
+    ensure_len("Address", trimmed, 1, MAX_ADDRESS_LEN)?;
+    Ok(trimmed)
+}
+
+fn validate_txid(txid: &str) -> WalletResult<&str> {
+    let trimmed = txid.trim();
+    ensure_len("Transaction id", trimmed, 1, MAX_TXID_LEN)?;
+    if !trimmed
+        .chars()
+        .all(|character| character.is_ascii_hexdigit())
+    {
+        return Err(WalletError::Message(
+            "Transaction id must be hexadecimal.".to_string(),
+        ));
+    }
+    Ok(trimmed)
+}
+
+fn validate_wallet_passphrase(passphrase: &str) -> WalletResult<()> {
+    ensure_len(
+        "Wallet passphrase",
+        passphrase,
+        12,
+        MAX_WALLET_PASSPHRASE_LEN,
+    )
 }
 
 async fn rpc_call(
@@ -323,15 +413,8 @@ async fn create_wallet(
     state: State<'_, AppState>,
 ) -> WalletResult<Overview> {
     let mut config = current_config(&state)?;
-    let name = wallet_name.trim();
-    if name.is_empty() {
-        return Err(WalletError::Message("Wallet name is required.".to_string()));
-    }
-    if passphrase.len() < 12 {
-        return Err(WalletError::Message(
-            "Use a wallet passphrase of at least 12 characters.".to_string(),
-        ));
-    }
+    let name = validate_wallet_name(&wallet_name)?;
+    validate_wallet_passphrase(&passphrase)?;
     rpc_call(
         &state,
         &config,
@@ -367,13 +450,8 @@ async fn restore_wallet(
     state: State<'_, AppState>,
 ) -> WalletResult<Overview> {
     let mut config = current_config(&state)?;
-    let name = wallet_name.trim();
-    let backup = backup_file.trim();
-    if name.is_empty() || backup.is_empty() {
-        return Err(WalletError::Message(
-            "Wallet name and backup file are required.".to_string(),
-        ));
-    }
+    let name = validate_wallet_name(&wallet_name)?;
+    let backup = validate_path_input("Backup file", &backup_file, true)?;
     rpc_call(
         &state,
         &config,
@@ -409,6 +487,7 @@ async fn unlock_wallet(
         .as_deref()
         .ok_or_else(|| WalletError::Message("No wallet is configured.".to_string()))?;
     let bounded_seconds = seconds.clamp(30, 1800);
+    validate_wallet_passphrase(&passphrase)?;
     rpc_call(
         &state,
         &config,
@@ -438,10 +517,14 @@ async fn new_address(mode: String, state: State<'_, AppState>) -> WalletResult<S
         .wallet
         .as_deref()
         .ok_or_else(|| WalletError::Message("No wallet is configured.".to_string()))?;
-    let method = if mode == "shielded" {
-        "z_getnewaddress"
-    } else {
-        "getnewaddress"
+    let method = match mode.as_str() {
+        "shielded" => "z_getnewaddress",
+        "transparent" => "getnewaddress",
+        _ => {
+            return Err(WalletError::Message(
+                "Address mode must be shielded or transparent.".to_string(),
+            ))
+        }
     };
     rpc_call(&state, &config, Some(wallet), method, json!([]))
         .await?
@@ -464,12 +547,13 @@ async fn send_transparent(
         .as_deref()
         .ok_or_else(|| WalletError::Message("No wallet is configured.".to_string()))?;
     let parsed_amount = parse_amount(&amount)?;
+    let recipient = validate_address(&address)?;
     rpc_call(
         &state,
         &config,
         Some(wallet),
         "sendtoaddress",
-        json!([address.trim(), parsed_amount]),
+        json!([recipient, parsed_amount]),
     )
     .await?
     .as_str()
@@ -490,12 +574,15 @@ async fn send_shielded(
         .as_deref()
         .ok_or_else(|| WalletError::Message("No wallet is configured.".to_string()))?;
     let parsed_amount = parse_amount(&amount)?;
+    let recipient = validate_address(&address)?;
+    let comment = comment.trim();
+    ensure_len("Shielded comment", comment, 0, MAX_COMMENT_LEN)?;
     let result = rpc_call(
         &state,
         &config,
         Some(wallet),
         "z_sendtoaddress",
-        json!([address.trim(), parsed_amount, comment.trim()]),
+        json!([recipient, parsed_amount, comment]),
     )
     .await?;
 
@@ -521,12 +608,13 @@ async fn view_shielded_transaction(
         .wallet
         .as_deref()
         .ok_or_else(|| WalletError::Message("No wallet is configured.".to_string()))?;
+    let txid = validate_txid(&txid)?;
     rpc_call(
         &state,
         &config,
         Some(wallet),
         "z_viewtransaction",
-        json!([txid.trim(), include_sensitive]),
+        json!([txid, include_sensitive]),
     )
     .await
 }
@@ -546,49 +634,60 @@ async fn backup_wallet_bundle(
         .ok_or_else(|| WalletError::Message("No wallet is configured.".to_string()))?;
 
     if !archive_path.trim().is_empty() {
-        if archive_passphrase.len() < 12 {
-            return Err(WalletError::Message(
-                "Archive passphrase must be at least 12 characters.".to_string(),
-            ));
-        }
+        let archive_path = validate_path_input("Archive path", &archive_path, true)?;
+        validate_wallet_passphrase(&archive_passphrase)?;
+        ensure_len(
+            "Wallet passphrase",
+            &wallet_passphrase,
+            0,
+            MAX_WALLET_PASSPHRASE_LEN,
+        )?;
         return rpc_call(
             &state,
             &config,
             Some(wallet),
             "backupwalletbundlearchive",
-            json!([
-                archive_path.trim(),
-                archive_passphrase,
-                wallet_passphrase,
-                false
-            ]),
+            json!([archive_path, archive_passphrase, wallet_passphrase, false]),
         )
         .await;
     }
 
-    if destination.trim().is_empty() {
-        return Err(WalletError::Message(
-            "Backup directory or archive path is required.".to_string(),
-        ));
-    }
+    let destination = validate_path_input("Backup directory", &destination, true)?;
+    ensure_len(
+        "Wallet passphrase",
+        &wallet_passphrase,
+        0,
+        MAX_WALLET_PASSPHRASE_LEN,
+    )?;
     rpc_call(
         &state,
         &config,
         Some(wallet),
         "backupwalletbundle",
-        json!([destination.trim(), wallet_passphrase, false]),
+        json!([destination, wallet_passphrase, false]),
     )
     .await
 }
 
 fn parse_amount(amount: &str) -> WalletResult<f64> {
+    let trimmed = amount.trim();
+    if trimmed.len() > 32 {
+        return Err(WalletError::Message("Amount is too long.".to_string()));
+    }
+    if let Some((_, fractional)) = trimmed.split_once('.') {
+        if fractional.len() > 8 {
+            return Err(WalletError::Message(
+                "Amount must use no more than 8 decimal places.".to_string(),
+            ));
+        }
+    }
     let parsed = amount
         .trim()
         .parse::<f64>()
         .map_err(|_| WalletError::Message("Amount is not a valid number.".to_string()))?;
-    if parsed <= 0.0 {
+    if !parsed.is_finite() || parsed <= 0.0 || parsed > MAX_BTX_AMOUNT {
         return Err(WalletError::Message(
-            "Amount must be greater than zero.".to_string(),
+            "Amount must be finite and within the valid BTX supply range.".to_string(),
         ));
     }
     Ok(parsed)
@@ -651,8 +750,53 @@ mod tests {
     #[test]
     fn amount_parser_rejects_invalid_values() {
         assert!(parse_amount("1.25").is_ok());
+        assert!(parse_amount("0.00000001").is_ok());
         assert!(parse_amount("0").is_err());
         assert!(parse_amount("-1").is_err());
         assert!(parse_amount("not-a-number").is_err());
+        assert!(parse_amount("inf").is_err());
+        assert!(parse_amount("1.123456789").is_err());
+        assert!(parse_amount("21000001").is_err());
+    }
+
+    #[test]
+    fn rpc_url_rejects_embedded_credentials_and_url_suffixes() {
+        assert!(validate_config(&config("http://user:pass@127.0.0.1:18443", false)).is_err());
+        assert!(validate_config(&config("http://127.0.0.1:18443/?x=1", false)).is_err());
+        assert!(validate_config(&config("http://127.0.0.1:18443/#fragment", false)).is_err());
+    }
+
+    #[test]
+    fn wallet_names_are_not_paths() {
+        assert!(validate_wallet_name("main").is_ok());
+        assert!(validate_wallet_name("../main").is_err());
+        assert!(validate_wallet_name("nested/main").is_err());
+        assert!(validate_wallet_name("nested\\main").is_err());
+    }
+
+    #[test]
+    fn ipc_input_lengths_are_bounded() {
+        assert!(validate_address(&"b".repeat(MAX_ADDRESS_LEN)).is_ok());
+        assert!(validate_address(&"b".repeat(MAX_ADDRESS_LEN + 1)).is_err());
+        assert!(ensure_len(
+            "Shielded comment",
+            &"c".repeat(MAX_COMMENT_LEN),
+            0,
+            MAX_COMMENT_LEN
+        )
+        .is_ok());
+        assert!(ensure_len(
+            "Shielded comment",
+            &"c".repeat(MAX_COMMENT_LEN + 1),
+            0,
+            MAX_COMMENT_LEN
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn txids_must_be_hex() {
+        assert!(validate_txid("aabbcc").is_ok());
+        assert!(validate_txid("not-a-txid").is_err());
     }
 }

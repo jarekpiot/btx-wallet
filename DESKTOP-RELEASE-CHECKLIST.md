@@ -101,11 +101,53 @@ fixed_desktop_release_verification=PASS
 ```text
 npm test: 4 passed, 0 failed
 npm run build: vite production build passed
-cargo test: 4 passed, 0 failed
+cargo test: 8 passed, 0 failed
 cargo fmt --check: passed
 scripts/verify-no-new-crypto.sh: No wallet-layer cryptographic implementation found
 desktop_app_launch=PASS
 ```
+
+## Focused Desktop Security Review
+
+Review scope: Phase 1 Tauri/Svelte desktop attack surface only. BTX consensus, SMILE v2, ML-DSA, SLH-DSA, note handling, and wallet cryptography remain Phase 0/core scope.
+
+Findings and fixes applied on 2026-05-18:
+
+- [x] Tauri permissions reviewed: only `core:default` is granted; no shell, filesystem, dialog, updater, HTTP, clipboard, or notification plugin permission is enabled.
+- [x] `withGlobalTauri` is disabled.
+- [x] CSP reviewed: `default-src 'self'`; image loading restricted to app assets; connect policy only permits Tauri IPC.
+- [x] Frontend XSS review passed: no `{@html}`, `innerHTML`, `eval`, `new Function`, local/session storage, clipboard use, WebSocket use, or frontend `fetch`.
+- [x] Telemetry review passed: no analytics, phone-home, updater, bundled logger, or background network client in the frontend.
+- [x] JSON-RPC is routed through the Rust backend only; the frontend does not directly reach arbitrary network endpoints.
+- [x] Remote RPC still requires explicit user opt-in and HTTPS; local loopback HTTP remains allowed for local `btxd`.
+- [x] RPC URLs now reject embedded credentials, query strings, and fragments.
+- [x] IPC inputs are now bounded for RPC URL, credentials, wallet names, paths, addresses, comments, txids, and passphrases.
+- [x] Wallet names are now rejected if they look like paths.
+- [x] Address mode is now an explicit backend enum check (`shielded` or `transparent`), instead of defaulting unexpected input to transparent.
+- [x] Amount parsing now rejects non-finite values, more than 8 decimal places, over-supply amounts, negative values, zero, and oversized amount strings.
+- [x] Shielded disclosure txids are now required to be hexadecimal and length-bounded before RPC forwarding.
+- [x] The visible RPC password field is cleared after a successful connection; RPC credentials remain in process memory only for the active session and are not persisted by the app.
+- [x] `npm audit --audit-level=moderate` passed with 0 vulnerabilities.
+- [x] Rust dependency review confirmed `reqwest` uses `rustls-tls`; no app-level wallet cryptography was introduced.
+
+Focused review proof:
+
+```text
+rg review: no frontend HTML injection, storage, clipboard, shell, updater, telemetry, WebSocket, or direct fetch patterns found.
+npm audit --audit-level=moderate: found 0 vulnerabilities
+cargo tree -e features: reqwest v0.12.28 uses rustls-tls / webpki roots
+scripts/verify-no-new-crypto.sh: No wallet-layer cryptographic implementation found
+npm run tauri:build: produced Windows MSI and NSIS bundles after hardening changes
+desktop_hardened_launch=PASS
+```
+
+Desktop residual risks:
+
+- RPC trust remains explicit: a malicious remote `btxd` can lie about balances/history and can observe RPC metadata. Users should prefer local `btxd` or a trusted HTTPS endpoint.
+- RPC credentials and wallet passphrases necessarily exist briefly in frontend/backend process memory while commands are submitted to BTX core. They are not persisted by the app, but memory zeroization is not implemented in this MVP.
+- Backup and restore path access is performed by `btxd`, not by Tauri filesystem permissions. The desktop app validates input shape and length, but the node enforces actual filesystem policy.
+- Release artifacts are GPG-signed and SHA256-verified. Windows Authenticode signing and Apple notarization are not yet implemented.
+- macOS and Linux GUI launch remain CI build/signature verified but not manually opened in this Windows review environment.
 
 ## Sign-Off
 
