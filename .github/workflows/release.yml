@@ -87,6 +87,15 @@ jobs:
       - name: Compare reproducible artifact hashes
         run: |
           mkdir -p artifacts
+          hash_file() {
+            if command -v sha256sum >/dev/null 2>&1; then
+              sha256sum "$1" | cut -d ' ' -f 1
+            elif command -v gsha256sum >/dev/null 2>&1; then
+              gsha256sum "$1" | cut -d ' ' -f 1
+            else
+              shasum -a 256 "$1" | awk '{print $1}'
+            fi
+          }
           proof="artifacts/reproducibility-${{ matrix.artifact_os }}-${{ matrix.artifact_arch }}.txt"
           artifact_name="btx-wallet-${BTX_ARTIFACT_VERSION}-${{ matrix.artifact_os }}-${{ matrix.artifact_arch }}"
           if [ "${{ matrix.artifact_os }}" = "windows" ]; then
@@ -98,8 +107,8 @@ jobs:
           second="artifacts-pass2/${artifact_name}${suffix}"
           test -f "$first"
           test -f "$second"
-          first_hash="$(sha256sum "$first" | cut -d ' ' -f 1)"
-          second_hash="$(sha256sum "$second" | cut -d ' ' -f 1)"
+          first_hash="$(hash_file "$first")"
+          second_hash="$(hash_file "$second")"
           {
             echo "Artifact: ${artifact_name}${suffix}"
             echo "Runner: ${{ runner.os }} / ${{ matrix.runner }}"
@@ -110,7 +119,26 @@ jobs:
             echo "Pass 2 SHA256: ${second_hash}"
           } > "$proof"
           cat "$proof"
-          test "$first_hash" = "$second_hash"
+          if [ "$first_hash" != "$second_hash" ]; then
+            mkdir -p compare-pass1 compare-pass2
+            if [ "${{ matrix.artifact_os }}" = "windows" ]; then
+              unzip -q "$first" -d compare-pass1
+              unzip -q "$second" -d compare-pass2
+            else
+              tar -xzf "$first" -C compare-pass1
+              tar -xzf "$second" -C compare-pass2
+            fi
+            echo "::group::SOURCE-MANIFEST diff"
+            diff -u compare-pass1/BTX-Wallet-Phase0/SOURCE-MANIFEST.txt compare-pass2/BTX-Wallet-Phase0/SOURCE-MANIFEST.txt || true
+            echo "::endgroup::"
+            echo "::group::Payload checksum diff"
+            diff -u compare-pass1/BTX-Wallet-Phase0/PAYLOAD-SHA256SUMS compare-pass2/BTX-Wallet-Phase0/PAYLOAD-SHA256SUMS || true
+            echo "::endgroup::"
+            echo "::group::Changed payload files"
+            diff -qr compare-pass1 compare-pass2 | head -200 || true
+            echo "::endgroup::"
+            exit 1
+          fi
           cp artifacts-pass2/* artifacts/
 
       - name: Verify wallet repo adds no crypto implementation

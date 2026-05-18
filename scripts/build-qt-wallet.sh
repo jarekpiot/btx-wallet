@@ -15,6 +15,7 @@ BTX_JOBS="${BTX_JOBS:-}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+BTX_CORE_PATCH_DIR="${BTX_CORE_PATCH_DIR:-${REPO_ROOT}/patches/btx-v0.29.7}"
 
 abs_path() {
   case "$1" in
@@ -47,8 +48,30 @@ append_flags() {
   fi
 }
 
+stable_path_text() {
+  local value="${1:-none}"
+  value="${value//${WORK_DIR}/<work-dir>}"
+  value="${value//${REPO_ROOT}/<repo-root>}"
+  printf '%s\n' "${value}"
+}
+
 require_cmd() {
   command -v "$1" >/dev/null 2>&1 || die "missing required command: $1"
+}
+
+apply_core_patches() {
+  local patch_dir="$1"
+  [ -d "${patch_dir}" ] || return 0
+
+  local patch_file
+  while IFS= read -r patch_file; do
+    [ -n "${patch_file}" ] || continue
+    log "Applying pinned BTX core compatibility patch $(basename "${patch_file}")"
+    git -C "${CORE_DIR}" apply --check "${patch_file}"
+    git -C "${CORE_DIR}" apply "${patch_file}"
+  done <<EOF_PATCHES
+$(find "${patch_dir}" -maxdepth 1 -type f -name '*.patch' | sort)
+EOF_PATCHES
 }
 
 find_python() {
@@ -200,6 +223,8 @@ git -C "${CORE_DIR}" checkout --detach "${BTX_CORE_REF}"
 
 actual_commit="$(git -C "${CORE_DIR}" rev-parse HEAD)"
 [ "${actual_commit}" = "${BTX_CORE_COMMIT}" ] || die "BTX core commit mismatch: expected ${BTX_CORE_COMMIT}, got ${actual_commit}"
+git -C "${CORE_DIR}" reset --hard "${BTX_CORE_COMMIT}" >/dev/null
+apply_core_patches "${BTX_CORE_PATCH_DIR}"
 
 source_date_epoch="$(git -C "${CORE_DIR}" show -s --format=%ct HEAD)"
 export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-${source_date_epoch}}"
@@ -331,6 +356,9 @@ Wallet release version: ${BTX_ARTIFACT_VERSION}
 BTX core repository: ${BTX_CORE_REPO}
 BTX core ref: ${BTX_CORE_REF}
 BTX core commit: ${actual_commit}
+BTX core patch dir: $(stable_path_text "${BTX_CORE_PATCH_DIR}")
+BTX core patch status:
+$(git -C "${CORE_DIR}" diff --stat -- src/wallet/shielded_wallet.cpp || true)
 SOURCE_DATE_EPOCH: ${SOURCE_DATE_EPOCH}
 Target OS: ${target_os}
 Target arch: ${target_arch}
@@ -338,9 +366,9 @@ Depends host: ${depends_host:-system}
 CMake: $(cmake --version | head -n 1)
 Security checks requested: ${BTX_RUN_SECURITY_CHECKS}
 Warnings as errors: ${BTX_WERROR}
-Extra C flags: ${BTX_EXTRA_C_FLAGS:-none}
-Extra CXX flags: ${BTX_EXTRA_CXX_FLAGS:-none}
-Extra OBJCXX flags: ${BTX_EXTRA_OBJCXX_FLAGS:-none}
+Extra C flags: $(stable_path_text "${BTX_EXTRA_C_FLAGS:-none}")
+Extra CXX flags: $(stable_path_text "${BTX_EXTRA_CXX_FLAGS:-none}")
+Extra OBJCXX flags: $(stable_path_text "${BTX_EXTRA_OBJCXX_FLAGS:-none}")
 EOF
 
 (

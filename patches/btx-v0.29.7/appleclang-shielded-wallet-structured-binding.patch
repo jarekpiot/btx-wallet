@@ -1,0 +1,10 @@
+diff --git a/src/wallet/shielded_wallet.cpp b/src/wallet/shielded_wallet.cpp
+index d2fb0341ee..8a1b783815 100644
+--- a/src/wallet/shielded_wallet.cpp
++++ b/src/wallet/shielded_wallet.cpp
+@@ -561,3 +561,4 @@ [[nodiscard]] std::vector<ShieldedCoin> SelectSchedulableV2IngressNotes(
+-    for (auto& [_, group_notes] : grouped) {
++    for (auto& group_entry : grouped) {
++        auto& group_notes = group_entry.second;
+         std::sort(group_notes.begin(), group_notes.end(), [](const ShieldedCoin& a, const ShieldedCoin& b) {
+             return std::tie(a.note.value, a.tree_position, a.nullifier) >
