@@ -37,7 +37,7 @@ For the first run, use the packaged pruned launcher:
 The launcher starts `btx-qt` with:
 
 ```text
--prune=4096 -pruneduringinit=4096 -retainshieldedcommitmentindex=1
+-prune=4096 -pruneduringinit=4096 -retainshieldedcommitmentindex=1 -listen=0 -natpmp=0 -upnp=0
 ```
 
 For a permanent config, copy `BTX-Wallet-Phase0/btx-pruned.conf` to your BTX
@@ -48,7 +48,9 @@ data directory as `btx.conf`:
 - Windows: `%APPDATA%\BTX\btx.conf`
 
 The starter config and launcher enable pruning, keep the shielded commitment
-index, and do not add telemetry or phone-home services.
+index, disable inbound listening and router port mapping by default, and do not
+add telemetry or phone-home services. Users who intentionally want to accept
+inbound P2P connections can opt in later by editing `btx.conf`.
 
 ## 3. Create and Encrypt a Wallet
 

@@ -75,7 +75,9 @@ BTX data directories:
 
 The included launchers and starter config use `prune=4096`,
 `pruneduringinit=4096`, and `retainshieldedcommitmentindex=1` so first sync is
-practical while shielded wallet restarts remain fast.
+practical while shielded wallet restarts remain fast. They also set
+`listen=0`, `natpmp=0`, and `upnp=0` so inbound P2P and router port mapping
+are opt-in, not default.
 
 See [docs/FIRST-RUN.md](docs/FIRST-RUN.md) for the full beginner flow.
 

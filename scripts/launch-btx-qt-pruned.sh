@@ -16,4 +16,7 @@ exec "${btx_qt}" \
   -prune=4096 \
   -pruneduringinit=4096 \
   -retainshieldedcommitmentindex=1 \
+  -listen=0 \
+  -natpmp=0 \
+  -upnp=0 \
   "$@"
