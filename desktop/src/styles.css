@@ -73,6 +73,7 @@ main {
 
 .brand span,
 .connection-pill,
+.node-summary span,
 .topbar p,
 .balance-panel span,
 .balance-panel small,
@@ -85,7 +86,8 @@ main {
 }
 
 .sidebar .brand span,
-.sidebar .connection-pill {
+.sidebar .connection-pill,
+.sidebar .node-summary span {
   color: #9fb2a8;
 }
 
@@ -129,6 +131,18 @@ nav button:hover {
 
 .connection-pill.online span {
   background: #58c26e;
+}
+
+.node-summary {
+  display: grid;
+  gap: 4px;
+  margin-top: -18px;
+  padding: 0 12px;
+}
+
+.node-summary strong {
+  color: #f6faf7;
+  font-size: 13px;
 }
 
 .workspace {
@@ -227,6 +241,123 @@ h3 {
   grid-template-columns: 1.15fr 1fr 1fr;
   gap: 14px;
   margin-bottom: 14px;
+}
+
+.onboarding {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.8fr);
+  gap: 24px;
+  margin-bottom: 14px;
+  padding: 24px;
+  border: 1px solid #dfe8e2;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.onboarding > div:first-child {
+  display: grid;
+  align-content: center;
+  gap: 14px;
+}
+
+.onboarding span,
+.setup-steps span,
+.field-note,
+.saved-nodes > span,
+.saved-node span,
+.connection-card span {
+  color: #6d7e74;
+  font-size: 13px;
+}
+
+.onboarding h2 {
+  margin-bottom: 0;
+  font-size: 26px;
+}
+
+.onboarding p {
+  max-width: 680px;
+  color: #44594d;
+  line-height: 1.55;
+}
+
+.onboarding-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.setup-steps {
+  display: grid;
+  gap: 10px;
+}
+
+.setup-steps > div {
+  display: grid;
+  gap: 5px;
+  padding: 14px;
+  border-radius: 8px;
+  background: #f7faf8;
+}
+
+.connection-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1px solid #dfe8e2;
+  border-radius: 8px;
+  background: #f7faf8;
+}
+
+.connection-card strong,
+.connection-card span {
+  display: block;
+}
+
+.connection-card strong {
+  margin-top: 4px;
+}
+
+.saved-nodes {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.saved-node {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.saved-node > button:first-child {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #dfe8e2;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #17231d;
+  text-align: left;
+}
+
+.saved-node span {
+  overflow-wrap: anywhere;
+}
+
+.compact {
+  min-height: 38px;
+  padding: 0 12px;
+}
+
+.field-note {
+  margin-top: 10px;
+  line-height: 1.45;
 }
 
 .balance-panel,
@@ -526,6 +657,7 @@ pre {
 
   .balance-grid,
   .status-grid,
+  .onboarding,
   .split {
     grid-template-columns: 1fr;
   }

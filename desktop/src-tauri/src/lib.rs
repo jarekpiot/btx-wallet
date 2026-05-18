@@ -24,10 +24,16 @@ const SMALL_NOTE_BTX: f64 = 0.01;
 enum WalletError {
     #[error("{0}")]
     Message(String),
-    #[error("RPC request failed: {0}")]
-    Rpc(#[from] reqwest::Error),
+    #[error("{0}")]
+    Rpc(String),
     #[error("RPC auth cookie could not be read: {0}")]
     Io(#[from] std::io::Error),
+}
+
+impl From<reqwest::Error> for WalletError {
+    fn from(error: reqwest::Error) -> Self {
+        WalletError::Rpc(explain_transport_error(&error.to_string()))
+    }
 }
 
 impl serde::Serialize for WalletError {
@@ -321,6 +327,30 @@ fn explain_rpc_error(message: &str) -> String {
     match hint {
         Some(hint) => format!("{message}\n\nWhat to try: {hint}"),
         None => message.to_string(),
+    }
+}
+
+fn explain_transport_error(message: &str) -> String {
+    let lower = message.to_ascii_lowercase();
+    let hint = if lower.contains("timed out") || lower.contains("timeout") {
+        Some("The node did not answer in time. Check that btxd is running, synced, and not overloaded.")
+    } else if lower.contains("connection refused") || lower.contains("error trying to connect") {
+        Some("Start btxd, confirm the RPC port, and check the RPC URL in Settings.")
+    } else if lower.contains("401") || lower.contains("unauthorized") {
+        Some("Check the RPC username/password or local cookie path.")
+    } else if lower.contains("403") || lower.contains("forbidden") {
+        Some("Check btxd RPC allowlist settings and make sure this wallet is allowed to connect.")
+    } else if lower.contains("404") || lower.contains("not found") {
+        Some("Check the wallet name. The node may be reachable, but the wallet endpoint is not loaded.")
+    } else if lower.contains("certificate") || lower.contains("tls") {
+        Some("Remote RPC must use a valid HTTPS endpoint. For local nodes, use http://127.0.0.1 with the local RPC port.")
+    } else {
+        None
+    };
+
+    match hint {
+        Some(hint) => format!("RPC request failed: {message}\n\nWhat to try: {hint}"),
+        None => format!("RPC request failed: {message}"),
     }
 }
 
@@ -1025,5 +1055,12 @@ mod tests {
         let message = explain_rpc_error("Insufficient funds");
         assert!(message.contains("What to try"));
         assert!(message.contains("consolidation"));
+    }
+
+    #[test]
+    fn transport_errors_get_actionable_context() {
+        let message = explain_transport_error("connection refused");
+        assert!(message.contains("What to try"));
+        assert!(message.contains("Start btxd"));
     }
 }

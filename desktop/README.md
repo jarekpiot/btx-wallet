@@ -13,6 +13,9 @@ audited BTX core through JSON-RPC.
 - No wallet-layer cryptography.
 - No telemetry, analytics, updater phone-home, or bundled remote logging.
 - RPC credentials and wallet passphrases are held in memory only.
+- Saved node profiles store only node URL, wallet name, display label, and
+  remote-approval preference. They do not store RPC usernames, passwords, or
+  cookie contents.
 - Remote RPC endpoints are blocked unless the user explicitly allows them.
 - Remote RPC over plain HTTP is blocked; use a local node or an HTTPS tunnel.
 - Tauri permissions are minimal: no shell, filesystem, dialog, updater, or HTTP

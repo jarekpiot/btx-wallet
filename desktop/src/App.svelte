@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import {
     backupBundle,
     consolidateShielded,
@@ -15,6 +16,14 @@
   } from "./lib/api";
   import { formatBtx, isLoopbackRpc } from "./lib/format";
   import {
+    connectionModeLabel,
+    deleteNodeProfile,
+    loadSavedNodes,
+    LOCAL_NODE_PROFILE,
+    saveNodeProfile,
+    syncStatusLabel
+  } from "./lib/nodes";
+  import {
     buildShieldedSendGuidance,
     consolidationCopy,
     shieldedComplexityLabel
@@ -29,6 +38,8 @@
   let busy = $state(false);
   let error = $state("");
   let notice = $state("");
+  let savedNodes = $state<Array<{ id: string; label: string; url: string; wallet: string; allowRemote: boolean }>>([]);
+  let nodeLabel = $state("Local BTX node");
 
   let rpcUrl = $state("http://127.0.0.1:18443");
   let rpcUser = $state("");
@@ -72,6 +83,8 @@
   );
   const shieldedNoteStatus = $derived(shieldedComplexityLabel(shieldedNoteSummary, walletReady));
   const shieldedConsolidationCopy = $derived(consolidationCopy(shieldedNoteSummary));
+  const connectionMode = $derived(connectionModeLabel(rpcUrl, allowRemote));
+  const syncStatus = $derived(syncStatusLabel(overview.node));
 
   function clearMessages() {
     error = "";
@@ -112,6 +125,41 @@
       overview = result;
       rpcPassword = "";
     }
+  }
+
+  function applyNodeProfile(profile: { label: string; url: string; wallet: string; allowRemote: boolean }) {
+    nodeLabel = profile.label;
+    rpcUrl = profile.url;
+    walletName = profile.wallet || "main";
+    allowRemote = profile.allowRemote;
+    rpcUser = "";
+    rpcPassword = "";
+    cookiePath = "";
+    selected = "settings";
+    notice = "Node profile loaded. Enter RPC credentials or a local cookie path, then connect.";
+    error = "";
+  }
+
+  function useLocalNode() {
+    applyNodeProfile(LOCAL_NODE_PROFILE);
+  }
+
+  function handleSaveNodeProfile() {
+    savedNodes = saveNodeProfile({
+      id: `${rpcUrl.trim()}|${walletName.trim()}`,
+      label: nodeLabel.trim() || connectionMode,
+      url: rpcUrl.trim(),
+      wallet: walletName.trim() || "main",
+      allowRemote
+    }, savedNodes);
+    notice = "Node profile saved without RPC username, password, or cookie data.";
+    error = "";
+  }
+
+  function handleDeleteNodeProfile(id: string) {
+    savedNodes = deleteNodeProfile(id, savedNodes);
+    notice = "Node profile removed.";
+    error = "";
   }
 
   async function handleCreateWallet() {
@@ -203,6 +251,10 @@
     }
   }
 
+  onMount(() => {
+    savedNodes = loadSavedNodes();
+  });
+
   $effect(() => {
     refresh();
   });
@@ -231,6 +283,10 @@
       <span></span>
       {connected ? "Connected" : "Disconnected"}
     </div>
+    <div class="node-summary">
+      <strong>{connectionMode}</strong>
+      <span>{syncStatus}</span>
+    </div>
   </aside>
 
   <section class="workspace">
@@ -257,6 +313,37 @@
     {/if}
 
     {#if selected === "overview"}
+      {#if !connected}
+        <section class="onboarding">
+          <div>
+            <span>Welcome</span>
+            <h2>Connect to BTX and start with shielded privacy</h2>
+            <p>
+              BTX Wallet Light opens quickly and uses BTX core over JSON-RPC for wallet creation,
+              signing, shielded sends, and note handling.
+            </p>
+            <div class="onboarding-actions">
+              <button type="button" class="primary" onclick={useLocalNode}>Use local node</button>
+              <button type="button" class="ghost" onclick={() => (selected = "settings")}>Open settings</button>
+            </div>
+          </div>
+          <div class="setup-steps">
+            <div>
+              <strong>1. Run or choose a node</strong>
+              <span>Local btxd is best. Trusted HTTPS remote nodes are supported.</span>
+            </div>
+            <div>
+              <strong>2. Connect safely</strong>
+              <span>Saved profiles keep only public node details, never RPC passwords.</span>
+            </div>
+            <div>
+              <strong>3. Create a wallet</strong>
+              <span>Wallet encryption, keys, and shielded transactions stay in official BTX core.</span>
+            </div>
+          </div>
+        </section>
+      {/if}
+
       <section class="balance-grid">
         <div class="balance-panel total">
           <span>Total</span>
@@ -286,7 +373,7 @@
         </div>
         <div>
           <span>Node height</span>
-          <strong>{overview.node?.blocks ?? 0} / {overview.node?.headers ?? 0}</strong>
+          <strong>{syncStatus}</strong>
         </div>
         <div>
           <span>Pruned</span>
@@ -479,6 +566,33 @@
       <section class="panel split">
         <div>
           <h2>Node Connection</h2>
+          <div class="connection-card">
+            <div>
+              <span>{connectionMode}</span>
+              <strong>{syncStatus}</strong>
+            </div>
+            <button type="button" class="ghost" onclick={useLocalNode}>Local preset</button>
+          </div>
+          {#if savedNodes.length}
+            <div class="saved-nodes">
+              <span>Saved nodes</span>
+              {#each savedNodes as profile}
+                <div class="saved-node">
+                  <button type="button" onclick={() => applyNodeProfile(profile)}>
+                    <strong>{profile.label}</strong>
+                    <span>{profile.url}</span>
+                  </button>
+                  <button type="button" class="ghost compact" onclick={() => handleDeleteNodeProfile(profile.id)}>
+                    Remove
+                  </button>
+                </div>
+              {/each}
+            </div>
+          {/if}
+          <label>
+            Profile name
+            <input bind:value={nodeLabel} placeholder="Local BTX node" />
+          </label>
           <label>
             RPC URL
             <input bind:value={rpcUrl} spellcheck="false" />
@@ -506,8 +620,14 @@
             <input bind:value={walletName} />
           </label>
           <button type="button" class="primary wide" onclick={connect} disabled={busy || (remoteWarning && !allowRemote)}>
-            Connect
+            {busy ? "Connecting..." : "Connect"}
           </button>
+          <button type="button" class="ghost wide" onclick={handleSaveNodeProfile} disabled={!rpcUrl.trim()}>
+            Save node profile
+          </button>
+          <p class="field-note">
+            Profiles save node URL, wallet name, and remote approval only. RPC credentials stay out of saved data.
+          </p>
         </div>
         <div>
           <h2>Wallet Access</h2>
