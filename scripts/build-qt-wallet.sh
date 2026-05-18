@@ -39,6 +39,14 @@ die() {
   exit 1
 }
 
+append_flags() {
+  if [ -n "$1" ]; then
+    printf '%s %s\n' "$1" "$2"
+  else
+    printf '%s\n' "$2"
+  fi
+}
+
 require_cmd() {
   command -v "$1" >/dev/null 2>&1 || die "missing required command: $1"
 }
@@ -203,9 +211,16 @@ export LANG=C
 target_os="${BTX_TARGET_OS:-$(host_os)}"
 target_arch="${BTX_TARGET_ARCH:-$(host_arch)}"
 depends_host="${BTX_DEPENDS_HOST:-$(default_depends_host)}"
+deterministic_prefix_flags="-ffile-prefix-map=${WORK_DIR}=. -fdebug-prefix-map=${WORK_DIR}=. -fmacro-prefix-map=${WORK_DIR}=."
+BTX_EXTRA_C_FLAGS="$(append_flags "${BTX_EXTRA_C_FLAGS:-}" "${deterministic_prefix_flags}")"
+BTX_EXTRA_CXX_FLAGS="$(append_flags "${BTX_EXTRA_CXX_FLAGS}" "${deterministic_prefix_flags}")"
+BTX_EXTRA_OBJCXX_FLAGS="$(append_flags "${BTX_EXTRA_OBJCXX_FLAGS:-}" "${deterministic_prefix_flags}")"
 if [ "${target_os}" = "windows" ] && [ -z "${BTX_EXTRA_CXX_FLAGS}" ]; then
   # Compatibility shim for the pinned official BTX core tag on MinGW.
   BTX_EXTRA_CXX_FLAGS="-include cstdint"
+elif [ "${target_os}" = "windows" ]; then
+  # Compatibility shim for the pinned official BTX core tag on MinGW.
+  BTX_EXTRA_CXX_FLAGS="$(append_flags "${BTX_EXTRA_CXX_FLAGS}" "-include cstdint")"
 fi
 artifact_name="btx-wallet-${BTX_ARTIFACT_VERSION}-${target_os}-${target_arch}"
 build_dir="${BUILD_ROOT}/${artifact_name}"
@@ -233,12 +248,13 @@ cmake_args=(
   -DBUILD_CLI=ON
   -DBUILD_TX=OFF
   -DBUILD_UTIL=OFF
-  -DBUILD_WALLET_TOOL=ON
+  -DBUILD_WALLET_TOOL=OFF
   -DBUILD_TESTS=OFF
   -DBUILD_GUI_TESTS=OFF
   -DBUILD_BENCH=OFF
   -DBUILD_FUZZ_BINARY=OFF
   -DINSTALL_MAN=OFF
+  -DBTX_ENABLE_METAL=OFF
   -DENABLE_WALLET=ON
   -DENABLE_HARDENING=ON
   -DREDUCE_EXPORTS=ON
@@ -255,8 +271,16 @@ if [ -n "${toolchain_file}" ] && [ -f "${toolchain_file}" ]; then
   cmake_args+=("-DCMAKE_TOOLCHAIN_FILE=${toolchain_file}")
 fi
 
+if [ -n "${BTX_EXTRA_C_FLAGS}" ]; then
+  cmake_args+=("-DCMAKE_C_FLAGS=${BTX_EXTRA_C_FLAGS}")
+fi
+
 if [ -n "${BTX_EXTRA_CXX_FLAGS}" ]; then
   cmake_args+=("-DCMAKE_CXX_FLAGS=${BTX_EXTRA_CXX_FLAGS}")
+fi
+
+if [ -n "${BTX_EXTRA_OBJCXX_FLAGS}" ]; then
+  cmake_args+=("-DCMAKE_OBJCXX_FLAGS=${BTX_EXTRA_OBJCXX_FLAGS}")
 fi
 
 if [ "${target_os}" = "macos" ] && command -v xcrun >/dev/null 2>&1; then
@@ -314,7 +338,9 @@ Depends host: ${depends_host:-system}
 CMake: $(cmake --version | head -n 1)
 Security checks requested: ${BTX_RUN_SECURITY_CHECKS}
 Warnings as errors: ${BTX_WERROR}
+Extra C flags: ${BTX_EXTRA_C_FLAGS:-none}
 Extra CXX flags: ${BTX_EXTRA_CXX_FLAGS:-none}
+Extra OBJCXX flags: ${BTX_EXTRA_OBJCXX_FLAGS:-none}
 EOF
 
 (
