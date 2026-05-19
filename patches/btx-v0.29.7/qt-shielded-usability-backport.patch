@@ -23,24 +23,45 @@ index b0bc1f4..0abf704 100644
 +                                      tr("The wallet will relock automatically after the requested operation when possible."));
              ui->passLabel2->hide();
 diff --git a/src/qt/bitcoingui.cpp b/src/qt/bitcoingui.cpp
-index fb2922a..55334ea 100644
+index fb2922a..b350374 100644
 --- a/src/qt/bitcoingui.cpp
 +++ b/src/qt/bitcoingui.cpp
+@@ -264,3 +264,3 @@ void BitcoinGUI::createActions()
+     overviewAction = new QAction(platformStyle->SingleColorIcon(":/icons/overview"), tr("&Overview"), this);
+-    overviewAction->setStatusTip(tr("Show general overview of wallet"));
++    overviewAction->setStatusTip(tr("Show wallet balances, sync state, and recent activity"));
+     overviewAction->setToolTip(overviewAction->statusTip());
 @@ -271,3 +271,3 @@ void BitcoinGUI::createActions()
      sendCoinsAction = new QAction(platformStyle->SingleColorIcon(":/icons/send"), tr("&Send"), this);
 -    sendCoinsAction->setStatusTip(tr("Send coins to a Bitcoin address"));
-+    sendCoinsAction->setStatusTip(tr("Send BTX to a recipient address"));
++    sendCoinsAction->setStatusTip(tr("Send BTX to a recipient address; use the RPC console for shielded sends"));
      sendCoinsAction->setToolTip(sendCoinsAction->statusTip());
 @@ -278,3 +278,3 @@ void BitcoinGUI::createActions()
      receiveCoinsAction = new QAction(platformStyle->SingleColorIcon(":/icons/receiving_addresses"), tr("&Receive"), this);
 -    receiveCoinsAction->setStatusTip(tr("Request payments (generates QR codes and bitcoin: URIs)"));
-+    receiveCoinsAction->setStatusTip(tr("Request BTX payments and generate receive addresses"));
++    receiveCoinsAction->setStatusTip(tr("Generate fresh BTX receive addresses and payment requests"));
      receiveCoinsAction->setToolTip(receiveCoinsAction->statusTip());
+@@ -285,3 +285,3 @@ void BitcoinGUI::createActions()
+     historyAction = new QAction(platformStyle->SingleColorIcon(":/icons/history"), tr("&Transactions"), this);
+-    historyAction->setStatusTip(tr("Browse transaction history"));
++    historyAction->setStatusTip(tr("Review confirmed, pending, and shielded-related wallet activity"));
+     historyAction->setToolTip(historyAction->statusTip());
 @@ -365,3 +365,3 @@ void BitcoinGUI::createActions()
      openAction = new QAction(tr("Open &URI…"), this);
 -    openAction->setStatusTip(tr("Open a bitcoin: URI"));
 +    openAction->setStatusTip(tr("Open a BTX payment URI"));
  
+@@ -1636,4 +1636,9 @@ void BitcoinGUI::showProgress(const QString &title, int nProgress)
+     if (nProgress == 0) {
+-        progressDialog = new QProgressDialog(title, QString(), 0, 100);
++        progressDialog = new QProgressDialog(
++            title + "\n\n" + tr("Keep BTX Wallet open until this operation finishes."),
++            QString(),
++            0,
++            100);
+         GUIUtil::PolishProgressDialog(progressDialog);
++        progressDialog->setWindowTitle(tr("Operation in progress"));
+         progressDialog->setWindowModality(Qt::ApplicationModal);
 diff --git a/src/qt/forms/overviewpage.ui b/src/qt/forms/overviewpage.ui
 index 44061d6..4b1292f 100644
 --- a/src/qt/forms/overviewpage.ui
@@ -62,9 +83,24 @@ index 44061d6..4b1292f 100644
 +          </item>
            <item>
 diff --git a/src/qt/forms/receivecoinsdialog.ui b/src/qt/forms/receivecoinsdialog.ui
-index c9948fe..35beb50 100644
+index c9948fe..f116ee7 100644
 --- a/src/qt/forms/receivecoinsdialog.ui
 +++ b/src/qt/forms/receivecoinsdialog.ui
+@@ -49,3 +49,3 @@
+           <property name="toolTip">
+-           <string>An optional message to attach to the payment request, which will be displayed when the request is opened. Note: The message will not be sent with the payment over the Bitcoin network.</string>
++           <string>An optional message to attach to the payment request, which will be displayed when the request is opened. Note: The message is not sent with the payment over the BTX network.</string>
+           </property>
+@@ -72,3 +72,3 @@
+           <property name="text">
+-           <string>Use this form to request payments. All fields are &lt;b&gt;optional&lt;/b&gt;.</string>
++           <string>Create a fresh receive request. Use a new address for each payer when practical. All fields are &lt;b&gt;optional&lt;/b&gt;.</string>
+           </property>
+@@ -95,3 +95,3 @@
+           <property name="toolTip">
+-           <string>An optional message that is attached to the payment request and may be displayed to the sender.</string>
++           <string>An optional local message attached to the payment request. It may be displayed to the sender, but is not written on-chain.</string>
+           </property>
 @@ -276,2 +276,15 @@
        </item>
 +      <item>
@@ -354,6 +390,32 @@ index 34cc48c..d0d9310 100644
      QWidget *createDateRangeWidget();
 +    void updateEmptyLabel();
  
+diff --git a/src/qt/walletframe.cpp b/src/qt/walletframe.cpp
+index 6e25dec..c2e3499 100644
+--- a/src/qt/walletframe.cpp
++++ b/src/qt/walletframe.cpp
+@@ -56,4 +56,5 @@ WalletFrame::WalletFrame(const PlatformStyle* _platformStyle, QWidget* parent)
+ 
+-    QLabel *noWallet = new QLabel(tr("No wallet has been loaded.\nGo to File > Open Wallet to load a wallet.\n- OR -"));
++    QLabel *noWallet = new QLabel(tr("No wallet is loaded.\nOpen an existing wallet from File > Open Wallet, or create a new encrypted wallet below."));
+     noWallet->setAlignment(Qt::AlignCenter);
++    noWallet->setWordWrap(true);
+     no_wallet_layout->addWidget(noWallet, 0, Qt::AlignHCenter | Qt::AlignBottom);
+diff --git a/src/qt/walletview.cpp b/src/qt/walletview.cpp
+index 0311498..bf131a5 100644
+--- a/src/qt/walletview.cpp
++++ b/src/qt/walletview.cpp
+@@ -279,4 +279,9 @@ void WalletView::showProgress(const QString &title, int nProgress)
+     if (nProgress == 0) {
+-        progressDialog = new QProgressDialog(title, tr("Cancel"), 0, 100);
++        progressDialog = new QProgressDialog(
++            title + "\n\n" + tr("Keep BTX Wallet open until this operation finishes. You can cancel, but the wallet may need to scan again later."),
++            tr("Cancel"),
++            0,
++            100);
+         GUIUtil::PolishProgressDialog(progressDialog);
++        progressDialog->setWindowTitle(tr("Wallet operation in progress"));
+         progressDialog->setWindowModality(Qt::ApplicationModal);
 diff --git a/src/wallet/shielded_rpc.cpp b/src/wallet/shielded_rpc.cpp
 index d8ff5a0..4f89bf0 100644
 --- a/src/wallet/shielded_rpc.cpp

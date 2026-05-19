@@ -39,6 +39,9 @@ official `btx-qt` full node wallet through
 - Hides shielded-send, viewing-key, note-merge, recovery, and disclosure
   commands from RPC console history to reduce accidental local exposure of
   shielded recipient, amount, viewing-key, and recovery data.
+- Improves general Qt polish with clearer no-wallet guidance, receive-request
+  helper text, navigation/status tips, and progress-dialog labels for wallet
+  scans and other longer operations.
 
 ## Security Boundary
 
@@ -97,6 +100,17 @@ targeted no-new-crypto source scan: matches were limited to existing encryptwall
 manual source review: RPC-console changes only affect command-history redaction and static guidance messages before command execution
 ```
 
+Additional Qt polish verification on 2026-05-19:
+
+```text
+fresh local BTX worktree: git apply --check qt-shielded-usability-backport.patch passed
+fresh local BTX worktree: git apply qt-shielded-usability-backport.patch + git diff --check passed
+fresh local BTX worktree: git apply AppleClang patch before Qt usability patch + git diff --check passed
+repository diff --check: passed
+targeted no-new-crypto source scan: matches were limited to existing encryptwallet filtering, static encrypted-wallet/no-wallet guidance, and existing SMILE note-limit constants
+manual source review: new polish changes are limited to static UI text, tooltips/status tips, and progress-dialog labels
+```
+
 Note: the repository `scripts/verify-no-new-crypto.sh` helper is Bash-based.
 In this Windows review environment, `bash` resolves to WSL and no Linux
 distribution is installed. Equivalent source/pattern review was performed
@@ -148,6 +162,11 @@ Findings:
 - [x] Expanded RPC-console history filtering reuses the existing sensitive
   command redaction path. It reduces retained local command history and does not
   modify command execution or command results.
+- [x] Progress-dialog changes only add explanatory labels and window titles.
+  They do not alter rescan/import cancellation semantics, wallet scanning, or
+  node progress behavior.
+- [x] No-wallet, receive-request, and navigation text changes are static UI
+  copy only and do not parse, persist, or transmit user input.
 
 Review proof:
 
@@ -165,6 +184,9 @@ fresh local worktree apply check for RPC-console guidance patch: passed
 fresh local worktree git diff --check after RPC-console guidance patch: passed
 fresh local worktree git diff --check after AppleClang + Qt usability patches including RPC-console guidance: passed
 fresh local worktree git diff --check after Qt usability + AppleClang patches in release order: passed
+fresh local worktree apply check for Qt polish pass: passed
+fresh local worktree git diff --check after Qt polish pass: passed
+fresh local worktree git diff --check after AppleClang + Qt usability patches including polish pass: passed
 ```
 
 Residual recommendations:
