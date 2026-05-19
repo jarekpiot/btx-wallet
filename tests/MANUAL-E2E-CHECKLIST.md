@@ -1,101 +1,87 @@
-# BTX Wallet Light Manual E2E Checklist
+# BTX Wallet Manual E2E Testing Checklist
 
-Use this checklist before publishing a BTX Wallet Light release. Test with a
-local `btxd` node when possible. Record the app version, node version, network,
-OS, and any failed commands in the release checklist.
+This checklist covers critical end-to-end flows for both BTX desktop wallets:
+
+- **BTX Wallet Light** (Tauri)
+- **BTX Wallet Full Node** (`btx-qt`)
+
+Use a trusted local `btxd` node when possible. Record the app version, node
+version, network, OS, test date, logs, screenshots, and any failed commands in
+the relevant release checklist.
 
 ## Test Setup
 
 - [ ] Install the release candidate on a clean Windows, macOS, or Linux machine.
 - [ ] Start a trusted local `btxd` node.
 - [ ] Confirm `btx-cli getblockchaininfo` works against the same node.
-- [ ] Confirm the app launches without a blank window or console errors.
+- [ ] Confirm the wallet app launches without a blank window or startup error.
 - [ ] Confirm no telemetry, analytics, or unexpected network requests are made.
+- [ ] Confirm test wallets are funded with transparent and shielded test funds.
 
-## Node Connection
+## Light Client (Tauri)
 
-- [ ] Open Settings.
-- [ ] Add or select a local node profile.
-- [ ] Connect to `http://127.0.0.1:18443` or the local node URL for the test network.
-- [ ] Verify connection status shows connected.
-- [ ] Stop the node and confirm the app shows a clear connection error.
-- [ ] Restart the node and confirm the app recovers after reconnect/refresh.
+### High Priority
 
-## Wallet Create / Restore
+| # | Test Case | Expected Result | Pass? | Notes |
+|---|-----------|-----------------|-------|-------|
+| 1 | Create new encrypted wallet | Wallet created successfully; passphrase is required and sensitive fields clear after use | | |
+| 2 | Restore wallet from backup | Wallet restores successfully and expected balance/history is visible | | |
+| 3 | Connect to local node | Settings shows connected status and wallet data refreshes | | |
+| 4 | Send transparent transaction | Transaction succeeds, txid is shown, and balance/history update after confirmation | | |
+| 5 | Send normal shielded transaction | SMILE v2 send succeeds; warnings are shown if applicable | | |
+| 6 | Send large/complex shielded transaction | Warning and guidance appear before or during the send flow | | |
+| 7 | Perform note consolidation | Consolidation completes with clear guidance and confirmation expectations | | |
+| 8 | Check shielded note health/readiness | Spendable notes, fragmentation/readiness, and suggestions are visible and accurate | | |
+| 9 | Test error cases: bad address, insufficient funds, locked wallet | Clear errors plus actionable "What to try" guidance | | |
+| 10 | Final confirmation before broadcast | User must confirm before send; irreversible-send language is clear | | |
 
-- [ ] Create a new encrypted descriptor wallet.
-- [ ] Confirm the app requires a non-empty passphrase.
-- [ ] Lock and unlock the wallet.
-- [ ] Confirm sensitive passphrase fields clear after use.
-- [ ] Create a backup bundle.
-- [ ] Restore the backup into a fresh wallet name.
-- [ ] Confirm restored balances and addresses match expectations.
+### Medium Priority
 
-## Receive Flow
+| # | Test Case | Expected Result | Pass? | Notes |
+|---|-----------|-----------------|-------|-------|
+| 11 | View shielded transaction history | History is clear, readable, and does not overexpose private note details | | |
+| 12 | Backup and restore flow | Backup bundle can be created and restored end-to-end | | |
+| 13 | Test long operations such as scans or refreshes | Progress feedback is clear and the UI remains understandable | | |
+| 14 | Node disconnection handling | App shows graceful connection errors and recovers after reconnect | | |
 
-- [ ] Generate a transparent receive address.
-- [ ] Generate a shielded receive address.
-- [ ] Confirm receive empty states and address safety guidance are clear.
-- [ ] Copy each address and verify it pastes exactly.
-- [ ] Confirm the app does not silently copy seed phrases, keys, or passphrases.
+## Full Node Client (Qt / btx-qt)
 
-## Transparent Send
+### High Priority
 
-- [ ] Fund the wallet with transparent test funds.
-- [ ] Send a small transparent transaction to a second wallet/address.
-- [ ] Confirm the send button shows an in-progress state.
-- [ ] Confirm success feedback includes a txid.
-- [ ] Confirm transaction history updates after confirmation.
-- [ ] Try an invalid transparent address and confirm the error is actionable.
-- [ ] Try an amount larger than balance and confirm the error is actionable.
+| # | Test Case | Expected Result | Pass? | Notes |
+|---|-----------|-----------------|-------|-------|
+| 1 | Create or restore wallet via Qt | Wallet opens correctly and encryption/unlock flow is clear | | |
+| 2 | Send shielded transaction via supported RPC flow | Send works with guidance/warnings and no new wallet-layer crypto | | |
+| 3 | Send large/complex shielded transaction | RPC result or console guidance shows warnings and suggested next steps | | |
+| 4 | Use RPC console with shielded commands | Console shows helpful guidance; sensitive shielded commands are not retained in history | | |
+| 5 | Check empty states: Overview, History, Receive | Empty states are clear and helpful | | |
+| 6 | Test error messages for shielded sends | Errors include clear, actionable guidance | | |
+| 7 | Perform operations while wallet locked | Proper unlock or locked-wallet messages are shown | | |
 
-## Shielded Send
+### Medium Priority
 
-- [ ] Fund the wallet with shielded test funds.
-- [ ] Refresh balances and note health.
-- [ ] Confirm shielded note count, fragmentation, and largest-note guidance are visible.
-- [ ] Send a small SMILE v2 shielded transaction to another wallet/address.
-- [ ] Confirm the app shows clear in-progress feedback.
-- [ ] Confirm success feedback includes a txid.
-- [ ] Confirm receiver balance updates after confirmation.
-- [ ] Verify selective disclosure for the shielded tx.
-- [ ] Try an invalid shielded address and confirm the error is actionable.
-- [ ] Try a shielded amount larger than balance and confirm the error is actionable.
+| # | Test Case | Expected Result | Pass? | Notes |
+|---|-----------|-----------------|-------|-------|
+| 8 | Progress dialogs during scans/imports | Labels explain what is happening and whether cancellation may require another scan | | |
+| 9 | Address book and receive flow | Receive requests and address book guidance are clear and smooth | | |
+| 10 | Navigation and status indicators | Overview, Send, Receive, Transactions, sync, and status tips are clear and consistent | | |
 
-## Large / Complex Shielded Send
+## Scripted E2E Smoke Tests
 
-- [ ] Prepare a wallet with many small shielded notes.
-- [ ] Refresh note health.
-- [ ] Confirm high fragmentation or high-risk send guidance appears.
-- [ ] Attempt a larger shielded send that is near note limits.
-- [ ] Confirm the app warns before or during the send flow.
-- [ ] Confirm guidance suggests note consolidation or splitting the payment.
-- [ ] Confirm no sensitive note details are exposed unnecessarily.
-
-## Note Consolidation
-
-- [ ] Open the shielded send/consolidation area.
-- [ ] Review consolidation copy and expectations.
-- [ ] Run a basic note consolidation to a fresh shielded address in the same wallet.
-- [ ] Confirm the app shows in-progress and success feedback.
-- [ ] Wait for confirmation.
-- [ ] Refresh note health and confirm fragmentation improves or guidance changes.
-- [ ] Confirm the consolidation transaction appears in history.
-
-## Error Guidance
-
-- [ ] Test wrong RPC URL.
-- [ ] Test wrong RPC username/password if auth is enabled.
-- [ ] Test locked wallet send attempt.
-- [ ] Test node not synced.
-- [ ] Test insufficient transparent balance.
-- [ ] Test insufficient shielded balance.
-- [ ] Test fragmented-note or note-limit failure where possible.
-- [ ] Confirm each error includes a clear "What to try" style next step.
+- [ ] Review `tests/e2e/light-client/shielded-send-test.sh` configuration.
+- [ ] Run `tests/e2e/light-client/shielded-send-test.sh` against a local test node.
+- [ ] Review `tests/e2e/light-client/consolidation-test.sh` configuration.
+- [ ] Run `tests/e2e/light-client/consolidation-test.sh` against a wallet with multiple shielded notes.
+- [ ] Review `tests/e2e/full-node/shielded-send-test.sh` configuration.
+- [ ] Run `tests/e2e/full-node/shielded-send-test.sh` against a local full-node wallet.
+- [ ] Review `tests/e2e/full-node/rpc-console-test.sh` configuration.
+- [ ] Run `tests/e2e/full-node/rpc-console-test.sh` to verify shielded RPC guidance surfaces are available.
+- [ ] Attach command output, txids, and any failures to the release checklist.
 
 ## Release Sign-Off
 
-- [ ] Manual E2E passed on at least one clean machine.
+- [ ] Manual E2E passed for BTX Wallet Light on at least one clean machine.
+- [ ] Manual E2E passed for `btx-qt` Full Node on at least one clean machine.
 - [ ] Scripted E2E examples were reviewed or run against a local test node.
 - [ ] Failures are documented with logs, screenshots, and remediation notes.
 - [ ] Release checklist links to this completed checklist.
