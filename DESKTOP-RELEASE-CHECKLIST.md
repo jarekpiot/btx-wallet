@@ -212,6 +212,68 @@ Practical recommendations:
 - Add Authenticode signing and Apple notarization when release infrastructure is ready.
 - Continue running this focused delta review after every change to saved profiles, passphrase handling, RPC routing, or shielded send/consolidation UX.
 
+## Rigorous Wallet-Funds Security Review
+
+Review date: 2026-05-19
+
+Scope: higher-rigor review of BTX Wallet Light fund-loss and privacy risks in the Tauri/Svelte desktop layer. This review covered user/RPC input validation, shielded send and consolidation flows, note-health guidance, sensitive-field handling, Tauri permissions, IPC, local storage, and release build behavior. It did not re-audit BTX consensus, SMILE v2 proving, ML-DSA, SLH-DSA, note selection, or wallet cryptography, which remain official BTX core scope.
+
+Severity-rated findings:
+
+- [x] Critical: none found.
+- [x] High: none remaining after review.
+- [x] Medium: send and consolidation amounts were parsed through `f64` before JSON-RPC submission. Floating-point conversion is inappropriate for wallet send amounts because it can lose exact decimal intent. Fixed by validating BTX amounts as bounded plain decimal strings, rejecting signs, exponent notation, zero, over-supply values, and more than 8 decimal places, then forwarding the canonical string to BTX core.
+- [x] Medium: existing wallet unlock used the new-wallet minimum passphrase policy. This could block users from unlocking older/restored wallets with shorter existing passphrases through the light client. Fixed by keeping the 12-character minimum for new wallet/archive passphrases while allowing any non-empty bounded passphrase for existing wallet unlock.
+- [x] Medium: send and shielded consolidation actions did not require a final confirmation immediately before asking BTX core to broadcast. Fixed by adding explicit confirmation prompts that show amount, mode/action, address preview, irreversibility, fee, and confirmation expectations.
+- [x] Low: shielded disclosure txid validation accepted arbitrary-length hexadecimal strings. Fixed by requiring exactly 64 hexadecimal characters before forwarding to `z_viewtransaction`.
+- [x] Low: source-only crypto scan confirmed desktop code contains display/documentation references to encryption and SMILE v2 only; no wallet-layer cryptographic implementation was added.
+- [x] Low: frontend attack-surface scan found no HTML injection, `eval`, direct frontend network calls, WebSocket, telemetry, clipboard, shell, updater, filesystem, or dialog permissions. The only intentional browser storage remains sanitized saved node profile metadata.
+
+Fixes applied:
+
+- [x] Exact decimal amount validation and RPC forwarding in `desktop/src-tauri/src/lib.rs`.
+- [x] Separate new-wallet and existing-wallet passphrase validators in `desktop/src-tauri/src/lib.rs`.
+- [x] Strict 64-character hexadecimal txid validation in `desktop/src-tauri/src/lib.rs`.
+- [x] Final user confirmation before transparent send, shielded send, and shielded note consolidation in `desktop/src/App.svelte`.
+- [x] Regression tests added for exact amount validation, txid validation, and legacy-short existing wallet unlock.
+
+Rigorous review proof:
+
+```text
+npm test: 26 passed, 0 failed
+npm run build: vite production build passed
+cargo test: 14 passed, 0 failed
+cargo fmt --check: passed
+npm audit --audit-level=moderate: found 0 vulnerabilities
+npm run tauri:build: produced Windows MSI and NSIS bundles
+source crypto scan: no desktop wallet-layer crypto implementation found; sensitive words are UI/docs/dependency-lock references only
+attack-surface scan: no frontend HTML injection, eval, direct fetch, WebSocket, telemetry, updater, shell, clipboard, or Tauri fs/dialog/http permissions found
+```
+
+Tooling note: `scripts/verify-no-new-crypto.sh` is Bash-based and could not run directly in this Windows shell because `bash` resolves to WSL and no Linux distribution is installed. The equivalent checks were run with `git ls-files` and `rg` over tracked desktop source files.
+
+Current release-safety decision:
+
+- Safe for wider release after CI completes and artifacts are signed/verified.
+- No known Critical or High findings remain open in the desktop wallet layer.
+- The Medium findings identified in this review were fixed and covered by tests/build verification.
+
+Residual risks:
+
+- Remote `btxd` trust remains the largest light-client risk. A malicious or compromised remote node can misreport balances/history, observe RPC metadata, and degrade shielded operation reliability. UX should continue steering users toward local `btxd` or trusted HTTPS endpoints.
+- RPC credentials, wallet passphrases, and send details necessarily pass through Svelte state, Tauri IPC, Rust memory, and the BTX RPC request path during operations. They are not persisted by the app, but memory zeroization is not implemented.
+- Address validity and address-family correctness are still delegated to BTX core. The app length-bounds and confirms user intent, but it does not implement wallet-layer address parsing.
+- Shielded note-health and send-readiness warnings are heuristics. BTX core remains authoritative for note selection, fees, proving, signing, and broadcast success.
+- The final confirmation prompt reduces accidental sends and address-poisoning mistakes, but it is not a hardware-wallet-grade trusted display.
+- macOS and Linux GUI launch were not manually opened in this Windows review environment; CI/release signing should remain mandatory for those platforms.
+
+Practical recommendations:
+
+- Add a mocked or regtest integration harness for amount forwarding, send confirmation, shielded note-health edge cases, and consolidation failures.
+- Consider OS keychain support before ever persisting RPC credentials.
+- Consider optional address book / verified recipient labels to reduce address-poisoning risk without weakening privacy defaults.
+- Keep the desktop app as a control surface over BTX core; do not add wallet-layer signing, proving, note selection, encryption, or key-handling logic.
+
 ## Sign-Off
 
 Approver: automated Phase 1 desktop release gate

@@ -14,8 +14,9 @@ const MAX_WALLET_PASSPHRASE_LEN: usize = 1024;
 const MAX_PATH_LEN: usize = 1024;
 const MAX_ADDRESS_LEN: usize = 512;
 const MAX_COMMENT_LEN: usize = 80;
-const MAX_TXID_LEN: usize = 128;
-const MAX_BTX_AMOUNT: f64 = 21_000_000.0;
+const TXID_HEX_LEN: usize = 64;
+const MAX_AMOUNT_LEN: usize = 32;
+const MAX_BTX_AMOUNT_WHOLE: &str = "21000000";
 const NOTE_WARN_THRESHOLD: usize = 32;
 const NOTE_HIGH_THRESHOLD: usize = 64;
 const SMALL_NOTE_BTX: f64 = 0.01;
@@ -247,7 +248,11 @@ fn validate_address(address: &str) -> WalletResult<&str> {
 
 fn validate_txid(txid: &str) -> WalletResult<&str> {
     let trimmed = txid.trim();
-    ensure_len("Transaction id", trimmed, 1, MAX_TXID_LEN)?;
+    if trimmed.len() != TXID_HEX_LEN {
+        return Err(WalletError::Message(
+            "Transaction id must be exactly 64 hexadecimal characters.".to_string(),
+        ));
+    }
     if !trimmed
         .chars()
         .all(|character| character.is_ascii_hexdigit())
@@ -259,11 +264,20 @@ fn validate_txid(txid: &str) -> WalletResult<&str> {
     Ok(trimmed)
 }
 
-fn validate_wallet_passphrase(passphrase: &str) -> WalletResult<()> {
+fn validate_new_wallet_passphrase(passphrase: &str) -> WalletResult<()> {
     ensure_len(
         "Wallet passphrase",
         passphrase,
         12,
+        MAX_WALLET_PASSPHRASE_LEN,
+    )
+}
+
+fn validate_existing_wallet_passphrase(passphrase: &str) -> WalletResult<()> {
+    ensure_len(
+        "Wallet passphrase",
+        passphrase,
+        1,
         MAX_WALLET_PASSPHRASE_LEN,
     )
 }
@@ -633,7 +647,7 @@ async fn create_wallet(
 ) -> WalletResult<Overview> {
     let mut config = current_config(&state)?;
     let name = validate_wallet_name(&wallet_name)?;
-    validate_wallet_passphrase(&passphrase)?;
+    validate_new_wallet_passphrase(&passphrase)?;
     rpc_call(
         &state,
         &config,
@@ -706,7 +720,7 @@ async fn unlock_wallet(
         .as_deref()
         .ok_or_else(|| WalletError::Message("No wallet is configured.".to_string()))?;
     let bounded_seconds = seconds.clamp(30, 1800);
-    validate_wallet_passphrase(&passphrase)?;
+    validate_existing_wallet_passphrase(&passphrase)?;
     rpc_call(
         &state,
         &config,
@@ -891,7 +905,7 @@ async fn backup_wallet_bundle(
 
     if !archive_path.trim().is_empty() {
         let archive_path = validate_path_input("Archive path", &archive_path, true)?;
-        validate_wallet_passphrase(&archive_passphrase)?;
+        validate_new_wallet_passphrase(&archive_passphrase)?;
         ensure_len(
             "Wallet passphrase",
             &wallet_passphrase,
@@ -925,28 +939,80 @@ async fn backup_wallet_bundle(
     .await
 }
 
-fn parse_amount(amount: &str) -> WalletResult<f64> {
+fn parse_amount(amount: &str) -> WalletResult<String> {
     let trimmed = amount.trim();
-    if trimmed.len() > 32 {
-        return Err(WalletError::Message("Amount is too long.".to_string()));
-    }
-    if let Some((_, fractional)) = trimmed.split_once('.') {
-        if fractional.len() > 8 {
-            return Err(WalletError::Message(
-                "Amount must use no more than 8 decimal places.".to_string(),
-            ));
-        }
-    }
-    let parsed = amount
-        .trim()
-        .parse::<f64>()
-        .map_err(|_| WalletError::Message("Amount is not a valid number.".to_string()))?;
-    if !parsed.is_finite() || parsed <= 0.0 || parsed > MAX_BTX_AMOUNT {
+    ensure_len("Amount", trimmed, 1, MAX_AMOUNT_LEN)?;
+
+    if trimmed.starts_with('+')
+        || trimmed.starts_with('-')
+        || trimmed
+            .chars()
+            .any(|character| matches!(character, 'e' | 'E'))
+    {
         return Err(WalletError::Message(
-            "Amount must be finite and within the valid BTX supply range.".to_string(),
+            "Amount must be a plain positive decimal number.".to_string(),
         ));
     }
-    Ok(parsed)
+
+    let mut parts = trimmed.split('.');
+    let whole_raw = parts.next().unwrap_or_default();
+    let fractional = parts.next();
+    if parts.next().is_some() || whole_raw.is_empty() {
+        return Err(WalletError::Message(
+            "Amount must be a valid decimal number.".to_string(),
+        ));
+    }
+
+    if !whole_raw
+        .chars()
+        .all(|character| character.is_ascii_digit())
+    {
+        return Err(WalletError::Message(
+            "Amount must be a plain positive decimal number.".to_string(),
+        ));
+    }
+
+    let fractional = fractional.unwrap_or_default();
+    if trimmed.ends_with('.')
+        || !fractional
+            .chars()
+            .all(|character| character.is_ascii_digit())
+    {
+        return Err(WalletError::Message(
+            "Amount must be a valid decimal number.".to_string(),
+        ));
+    }
+    if fractional.len() > 8 {
+        return Err(WalletError::Message(
+            "Amount must use no more than 8 decimal places.".to_string(),
+        ));
+    }
+
+    let whole = whole_raw.trim_start_matches('0');
+    let whole = if whole.is_empty() { "0" } else { whole };
+    if whole.len() > MAX_BTX_AMOUNT_WHOLE.len()
+        || (whole.len() == MAX_BTX_AMOUNT_WHOLE.len() && whole > MAX_BTX_AMOUNT_WHOLE)
+    {
+        return Err(WalletError::Message(
+            "Amount must be within the valid BTX supply range.".to_string(),
+        ));
+    }
+    if whole == MAX_BTX_AMOUNT_WHOLE && fractional.chars().any(|character| character != '0') {
+        return Err(WalletError::Message(
+            "Amount must be within the valid BTX supply range.".to_string(),
+        ));
+    }
+    if whole == "0" && fractional.chars().all(|character| character == '0') {
+        return Err(WalletError::Message(
+            "Amount must be greater than zero.".to_string(),
+        ));
+    }
+
+    if fractional.is_empty() {
+        Ok(whole.to_string())
+    } else {
+        Ok(format!("{whole}.{fractional}"))
+    }
 }
 
 pub fn run() {
@@ -1006,13 +1072,24 @@ mod tests {
 
     #[test]
     fn amount_parser_rejects_invalid_values() {
-        assert!(parse_amount("1.25").is_ok());
-        assert!(parse_amount("0.00000001").is_ok());
+        assert_eq!(parse_amount("1.25").unwrap(), "1.25");
+        assert_eq!(parse_amount("0.00000001").unwrap(), "0.00000001");
+        assert_eq!(parse_amount("0001.2300").unwrap(), "1.2300");
+        assert_eq!(
+            parse_amount("21000000.00000000").unwrap(),
+            "21000000.00000000"
+        );
         assert!(parse_amount("0").is_err());
+        assert!(parse_amount("0.00000000").is_err());
+        assert!(parse_amount(".1").is_err());
+        assert!(parse_amount("1.").is_err());
+        assert!(parse_amount("+1").is_err());
         assert!(parse_amount("-1").is_err());
+        assert!(parse_amount("1e-8").is_err());
         assert!(parse_amount("not-a-number").is_err());
         assert!(parse_amount("inf").is_err());
         assert!(parse_amount("1.123456789").is_err());
+        assert!(parse_amount("21000000.00000001").is_err());
         assert!(parse_amount("21000001").is_err());
     }
 
@@ -1053,8 +1130,16 @@ mod tests {
 
     #[test]
     fn txids_must_be_hex() {
-        assert!(validate_txid("aabbcc").is_ok());
+        assert!(validate_txid(&"a".repeat(TXID_HEX_LEN)).is_ok());
+        assert!(validate_txid("aabbcc").is_err());
         assert!(validate_txid("not-a-txid").is_err());
+    }
+
+    #[test]
+    fn existing_wallet_passphrase_can_be_legacy_short_value() {
+        assert!(validate_new_wallet_passphrase("short").is_err());
+        assert!(validate_existing_wallet_passphrase("short").is_ok());
+        assert!(validate_existing_wallet_passphrase("").is_err());
     }
 
     #[test]

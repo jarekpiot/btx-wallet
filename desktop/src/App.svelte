@@ -118,6 +118,12 @@
   const currentReceiveEmpty = $derived(receiveEmptyCopy(walletMode, walletReady));
   const currentHistoryEmpty = $derived(historyEmptyCopy(walletReady));
 
+  function addressPreview(address: string) {
+    const trimmed = address.trim();
+    if (trimmed.length <= 28) return trimmed;
+    return `${trimmed.slice(0, 12)}...${trimmed.slice(-12)}`;
+  }
+
   function clearMessages() {
     error = "";
     notice = "";
@@ -270,6 +276,12 @@
   }
 
   async function handleSend() {
+    const modeLabel = walletMode === "shielded" ? "shielded" : "transparent";
+    const confirmed = window.confirm(
+      `Send ${sendAmount.trim()} BTX as a ${modeLabel} transaction to ${addressPreview(sendAddress)}?\n\nAfter BTX core broadcasts the transaction, it cannot be undone.`
+    );
+    if (!confirmed) return;
+
     const operation =
       walletMode === "shielded"
         ? () => sendShielded(sendAddress.trim(), sendAmount.trim(), sendComment.trim())
@@ -290,6 +302,11 @@
   }
 
   async function handleConsolidateShielded() {
+    const confirmed = window.confirm(
+      `Consolidate ${consolidationAmount.trim()} BTX to a fresh shielded address in this wallet?\n\nThis is a normal shielded self-send. It may pay a network fee and needs confirmations before it improves note health.`
+    );
+    if (!confirmed) return;
+
     const result = await run(
       () => consolidateShielded(consolidationAmount.trim(), consolidationComment.trim()),
       {
