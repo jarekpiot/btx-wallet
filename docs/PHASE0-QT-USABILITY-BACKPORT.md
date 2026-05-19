@@ -22,6 +22,17 @@ official `btx-qt` full node wallet through
   consolidation path for fragmented wallets.
 - Adds simple empty-state labels to the Qt overview, transaction history, and
   receive-request history screens.
+- Adds clearer send-confirmation guidance that reminds users transactions are
+  irreversible after broadcast and recommends a small test amount for important
+  payments.
+- Adds temporary "Preparing..." and "Broadcasting..." send-button feedback with
+  a wait cursor during synchronous send preparation and broadcast handoff.
+- Expands standard Qt send errors with concise "What to try" guidance for
+  invalid addresses, invalid amounts, insufficient balance, fee issues,
+  duplicate recipients, and transaction creation failures.
+- Clarifies wallet unlock copy so users understand the wallet should relock
+  automatically after the requested operation when possible.
+- Cleans up BTX-specific navigation, address-book, receive, and send labels.
 
 ## Security Boundary
 
@@ -55,6 +66,17 @@ git apply --check qt-shielded-usability-backport.patch in fresh local BTX worktr
 git apply qt-shielded-usability-backport.patch + git diff --check: passed
 manual source review: changes are limited to Qt empty-state display logic and shielded RPC guidance/result fields
 repo diff --check: passed
+```
+
+Additional Qt polish-backport verification on 2026-05-19:
+
+```text
+fresh local BTX worktree: git apply --check qt-shielded-usability-backport.patch passed
+fresh local BTX worktree: git apply qt-shielded-usability-backport.patch + git diff --check passed
+fresh local BTX worktree: git apply appleclang patch + qt usability patch + git diff --check passed
+repository diff --check: passed
+targeted no-new-crypto source scan: only user-facing encrypted-wallet guidance and existing SMILE note-limit constants matched
+manual source review: new Qt changes are limited to static labels, status tips, wait-cursor/button feedback, and guidance strings
 ```
 
 Note: the repository `scripts/verify-no-new-crypto.sh` helper is Bash-based.
@@ -96,6 +118,13 @@ Findings:
 - [x] New `warnings`, `guidance`, and `next_steps` fields are static/advisory
   strings built from existing core state. They are not parsed as commands and
   do not execute user input.
+- [x] Send-dialog progress feedback is RAII-scoped UI state only. It does not
+  change transaction preparation, fee selection, signing, broadcast behavior, or
+  error control flow.
+- [x] Expanded Qt send errors and confirmation text are advisory only and reuse
+  existing Qt translation/message paths.
+- [x] Unlock-dialog wording is static guidance only. It does not change
+  passphrase handling, wallet encryption, or relock behavior.
 
 Review proof:
 
@@ -105,6 +134,10 @@ git apply --check qt-shielded-usability-backport.patch: passed
 git apply both patches in a clean worktree + git diff --check: passed
 scripts/verify-no-new-crypto.sh: No wallet-layer cryptographic implementation found
 fresh local worktree apply check for deeper patch: passed
+fresh local worktree apply check for polish patch: passed
+fresh local worktree git diff --check after polish patch: passed
+fresh local worktree git diff --check after AppleClang + Qt usability patches: passed
+targeted no-new-crypto source scan: no new cryptographic implementation or transaction-building path found
 ```
 
 Residual recommendations:

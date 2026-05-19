@@ -1,3 +1,46 @@
+diff --git a/src/qt/addressbookpage.cpp b/src/qt/addressbookpage.cpp
+index 5e7ebad..18dfd7d 100644
+--- a/src/qt/addressbookpage.cpp
++++ b/src/qt/addressbookpage.cpp
+@@ -94,3 +94,3 @@ AddressBookPage::AddressBookPage(const PlatformStyle *platformStyle, Mode _mode,
+     case SendingTab:
+-        ui->labelExplanation->setText(tr("These are your Bitcoin addresses for sending payments. Always check the amount and the receiving address before sending coins."));
++        ui->labelExplanation->setText(tr("These are your BTX addresses for sending payments. Always check the amount and receiving address before sending."));
+         ui->deleteAddress->setVisible(true);
+@@ -99,3 +99,3 @@ AddressBookPage::AddressBookPage(const PlatformStyle *platformStyle, Mode _mode,
+     case ReceivingTab:
+-        ui->labelExplanation->setText(tr("These are your Bitcoin addresses for receiving payments. Use the 'Request payment' button in the receive tab to create new addresses."));
++        ui->labelExplanation->setText(tr("These are your BTX addresses for receiving payments. Use the 'Request payment' button in the receive tab to create fresh addresses."));
+         ui->deleteAddress->setVisible(false);
+diff --git a/src/qt/askpassphrasedialog.cpp b/src/qt/askpassphrasedialog.cpp
+index b0bc1f4..0abf704 100644
+--- a/src/qt/askpassphrasedialog.cpp
++++ b/src/qt/askpassphrasedialog.cpp
+@@ -48,3 +48,4 @@ AskPassphraseDialog::AskPassphraseDialog(Mode _mode, QWidget *parent, SecureStri
+         case Unlock: // Ask passphrase
+-            ui->warningLabel->setText(tr("This operation needs your wallet passphrase to unlock the wallet."));
++            ui->warningLabel->setText(tr("This operation needs your wallet passphrase to unlock the wallet.") + "<br/>" +
++                                      tr("The wallet will relock automatically after the requested operation when possible."));
+             ui->passLabel2->hide();
+diff --git a/src/qt/bitcoingui.cpp b/src/qt/bitcoingui.cpp
+index fb2922a..55334ea 100644
+--- a/src/qt/bitcoingui.cpp
++++ b/src/qt/bitcoingui.cpp
+@@ -271,3 +271,3 @@ void BitcoinGUI::createActions()
+     sendCoinsAction = new QAction(platformStyle->SingleColorIcon(":/icons/send"), tr("&Send"), this);
+-    sendCoinsAction->setStatusTip(tr("Send coins to a Bitcoin address"));
++    sendCoinsAction->setStatusTip(tr("Send BTX to a recipient address"));
+     sendCoinsAction->setToolTip(sendCoinsAction->statusTip());
+@@ -278,3 +278,3 @@ void BitcoinGUI::createActions()
+     receiveCoinsAction = new QAction(platformStyle->SingleColorIcon(":/icons/receiving_addresses"), tr("&Receive"), this);
+-    receiveCoinsAction->setStatusTip(tr("Request payments (generates QR codes and bitcoin: URIs)"));
++    receiveCoinsAction->setStatusTip(tr("Request BTX payments and generate receive addresses"));
+     receiveCoinsAction->setToolTip(receiveCoinsAction->statusTip());
+@@ -365,3 +365,3 @@ void BitcoinGUI::createActions()
+     openAction = new QAction(tr("Open &URI…"), this);
+-    openAction->setStatusTip(tr("Open a bitcoin: URI"));
++    openAction->setStatusTip(tr("Open a BTX payment URI"));
+ 
 diff --git a/src/qt/forms/overviewpage.ui b/src/qt/forms/overviewpage.ui
 index 44061d6..4b1292f 100644
 --- a/src/qt/forms/overviewpage.ui
@@ -92,6 +135,107 @@ index 96df6b5..8298b6e 100644
      void ShowReceiveRequestDialogForItem(const QModelIndex& index);
 +    void updateEmptyRequestsLabel();
      virtual void resizeEvent(QResizeEvent *event) override;
+diff --git a/src/qt/sendcoinsdialog.cpp b/src/qt/sendcoinsdialog.cpp
+index bf961e8..eb7ba37 100644
+--- a/src/qt/sendcoinsdialog.cpp
++++ b/src/qt/sendcoinsdialog.cpp
+@@ -36,4 +36,6 @@
+ 
++#include <QApplication>
+ #include <QDebug>
+ #include <QFontMetrics>
++#include <QPushButton>
+ #include <QScrollBar>
+@@ -66,2 +68,33 @@ int getIndexForConfTarget(int target) {
+ 
++class ScopedWaitCursor
++{
++public:
++    ScopedWaitCursor() { QApplication::setOverrideCursor(Qt::WaitCursor); }
++    ~ScopedWaitCursor() { QApplication::restoreOverrideCursor(); }
++};
++
++class ScopedButtonText
++{
++public:
++    ScopedButtonText(QPushButton* button, const QString& text)
++        : m_button(button),
++          m_text(button->text()),
++          m_enabled(button->isEnabled())
++    {
++        m_button->setEnabled(false);
++        m_button->setText(text);
++    }
++
++    ~ScopedButtonText()
++    {
++        m_button->setText(m_text);
++        m_button->setEnabled(m_enabled);
++    }
++
++private:
++    QPushButton* m_button;
++    QString m_text;
++    bool m_enabled;
++};
++
+ SendCoinsDialog::SendCoinsDialog(const PlatformStyle *_platformStyle, QWidget *parent) :
+@@ -360,2 +393,4 @@ bool SendCoinsDialog::PrepareSendText(QString& question_string, QString& informa
+     }
++    question_string.append("<br /><br />");
++    question_string.append(tr("After broadcast, this transaction cannot be undone. For a large or important payment, send a small test amount first and wait for confirmation."));
+     question_string.append("</span>%1");
+@@ -506,3 +541,7 @@ void SendCoinsDialog::sendButtonClicked([[maybe_unused]] bool checked)
+     QString question_string, informative_text, detailed_text;
+-    if (!PrepareSendText(question_string, informative_text, detailed_text)) return;
++    {
++        ScopedWaitCursor wait_cursor;
++        ScopedButtonText button_text(ui->sendButton, tr("Preparing..."));
++        if (!PrepareSendText(question_string, informative_text, detailed_text)) return;
++    }
+     assert(m_current_transaction);
+@@ -642,2 +681,4 @@ void SendCoinsDialog::sendButtonClicked([[maybe_unused]] bool checked)
+             // now send the prepared transaction
++            ScopedWaitCursor wait_cursor;
++            ScopedButtonText button_text(ui->sendButton, tr("Broadcasting..."));
+             model->sendCoins(*m_current_transaction);
+@@ -839,18 +880,24 @@ void SendCoinsDialog::processSendCoinsReturn(const WalletModel::SendCoinsReturn
+     case WalletModel::InvalidAddress:
+-        msgParams.first = tr("The recipient address is not valid. Please recheck.");
++        msgParams.first = tr("The recipient address is not valid. Please recheck.") + "\n\n" +
++                          tr("What to try: copy the address again, verify the first and last characters, and send a small test amount for important payments.");
+         break;
+     case WalletModel::InvalidAmount:
+-        msgParams.first = tr("The amount to pay must be larger than 0.");
++        msgParams.first = tr("The amount to pay must be larger than 0.") + "\n\n" +
++                          tr("What to try: enter a positive amount and leave enough BTX available for the transaction fee.");
+         break;
+     case WalletModel::AmountExceedsBalance:
+-        msgParams.first = tr("The amount exceeds your balance.");
++        msgParams.first = tr("The amount exceeds your balance.") + "\n\n" +
++                          tr("What to try: lower the amount, wait for incoming transactions to confirm, or review coin control selections.");
+         break;
+     case WalletModel::AmountWithFeeExceedsBalance:
+-        msgParams.first = tr("The total exceeds your balance when the %1 transaction fee is included.").arg(msgArg);
++        msgParams.first = tr("The total exceeds your balance when the %1 transaction fee is included.").arg(msgArg) + "\n\n" +
++                          tr("What to try: lower the amount slightly so there is room for fees, or choose a different fee target.");
+         break;
+     case WalletModel::DuplicateAddress:
+-        msgParams.first = tr("Duplicate address found: addresses should only be used once each.");
++        msgParams.first = tr("Duplicate address found: addresses should only be used once each.") + "\n\n" +
++                          tr("What to try: remove duplicate recipients and ask the receiver for a fresh address when possible.");
+         break;
+     case WalletModel::TransactionCreationFailed:
+-        msgParams.first = tr("Transaction creation failed!");
++        msgParams.first = tr("Transaction creation failed!") + "\n\n" +
++                          tr("What to try: refresh the wallet, check sync status, review coin control selections, lower the amount, or choose automatic fee estimation.");
+         msgParams.second = CClientUIInterface::MSG_ERROR;
+@@ -861,3 +908,4 @@ void SendCoinsDialog::processSendCoinsReturn(const WalletModel::SendCoinsReturn
+         const QFont font_for_money = model->getOptionsModel()->getFontForMoney(display_unit);
+-        msgParams.first = tr("A fee higher than %1 is considered an absurdly high fee.").arg(BitcoinUnits::formatHtmlWithUnit(font_for_money, display_unit, model->wallet().getDefaultMaxTxFee()));
++        msgParams.first = tr("A fee higher than %1 is considered an absurdly high fee.").arg(BitcoinUnits::formatHtmlWithUnit(font_for_money, display_unit, model->wallet().getDefaultMaxTxFee())) + "\n\n" +
++                          tr("What to try: use automatic fee estimation or choose a lower custom fee.");
+         break;
 diff --git a/src/qt/transactionview.cpp b/src/qt/transactionview.cpp
 index 2341a19..de8030c 100644
 --- a/src/qt/transactionview.cpp

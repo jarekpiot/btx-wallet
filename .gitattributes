@@ -3,7 +3,7 @@
 *.md text eol=lf
 *.yml text eol=lf
 *.yaml text eol=lf
-*.patch text eol=lf
+*.patch text eol=lf whitespace=-blank-at-eol
 *.conf text eol=lf
 *.asc text eol=lf
 *.css text eol=lf
