@@ -7,8 +7,17 @@ official `btx-qt` full node wallet through
 ## Scope
 
 - Adds clearer shielded RPC error guidance with a short "What to try" section.
+- Expands shielded failure guidance for locked wallets, invalid destinations,
+  fee issues, amount/fee mistakes, sync/anchor issues, and fragmented notes.
+- Adds shielded note-health guidance to `z_getbalance` so users can see whether
+  note count looks normal, moderately fragmented, highly fragmented, or limited
+  by scan/locked-state visibility.
 - Adds optional warnings in verbose shielded send results when a send uses
   multiple notes or approaches the live shielded note-spend limit.
+- Adds `next_steps` to complex verbose shielded send results so users know to
+  wait for confirmation, refresh note health, consolidate, or split a payment.
+- Adds `next_steps` to `z_mergenotes` results so consolidation feels less
+  mysterious and users understand whether another merge may be useful.
 - Improves discoverability of `z_mergenotes` as the supported shielded
   consolidation path for fragmented wallets.
 - Adds simple empty-state labels to the Qt overview, transaction history, and
@@ -20,6 +29,10 @@ This backport does not add wallet-layer cryptography, note selection rules,
 signing logic, proving logic, or new transaction-building paths. Shielded
 transactions still use the audited BTX core wallet code. The patch only changes
 user-facing guidance, RPC response text, and Qt display labels.
+
+The deeper Phase 0 backport intentionally remains advisory. It does not block
+or bypass a send, change note selection, alter fees, change nullifier
+reservation behavior, or add a new shielded transaction path.
 
 ## Verification
 
@@ -34,6 +47,20 @@ scripts/verify-no-new-crypto.sh: No wallet-layer cryptographic implementation fo
 
 Full deterministic release builds remain covered by the Phase 0 release
 workflow before publishing updated binaries.
+
+Additional deeper-backport verification on 2026-05-19:
+
+```text
+git apply --check qt-shielded-usability-backport.patch in fresh local BTX worktree: passed
+git apply qt-shielded-usability-backport.patch + git diff --check: passed
+manual source review: changes are limited to Qt empty-state display logic and shielded RPC guidance/result fields
+repo diff --check: passed
+```
+
+Note: the repository `scripts/verify-no-new-crypto.sh` helper is Bash-based.
+In this Windows review environment, `bash` resolves to WSL and no Linux
+distribution is installed. Equivalent source/pattern review was performed
+against the patch and applied BTX worktree.
 
 ## Lightweight Security Review
 
@@ -60,6 +87,15 @@ Findings:
 - [x] Privacy finding fixed: complex-send warnings are now suppressed when the
   existing shielded RPC privacy path redacts input/output counts. This avoids
   leaking a coarse note-count or change-output hint through warning text.
+- [x] Deeper note-health guidance is based on aggregate spendable note count
+  already returned by `z_getbalance`; it does not expose nullifiers,
+  commitments, addresses, note values, or tree positions.
+- [x] `z_mergenotes` next-step text is derived from merge counts and aggregate
+  remaining spendable note count only. It does not change merge note selection,
+  fee calculation, signing, or broadcast behavior.
+- [x] New `warnings`, `guidance`, and `next_steps` fields are static/advisory
+  strings built from existing core state. They are not parsed as commands and
+  do not execute user input.
 
 Review proof:
 
@@ -68,6 +104,7 @@ git apply --check appleclang-shielded-wallet-structured-binding.patch: passed
 git apply --check qt-shielded-usability-backport.patch: passed
 git apply both patches in a clean worktree + git diff --check: passed
 scripts/verify-no-new-crypto.sh: No wallet-layer cryptographic implementation found
+fresh local worktree apply check for deeper patch: passed
 ```
 
 Residual recommendations:
@@ -76,6 +113,9 @@ Residual recommendations:
   binaries.
 - Add a small upstream wallet/RPC test for `warnings` behavior if this patch is
   later moved from repository patch form into the core tree.
+- Add RPC tests for `z_getbalance.note_health`, `z_getbalance.guidance`, and
+  `z_mergenotes.next_steps` when this patch is promoted from repository patch
+  form into the core tree.
 - Keep future Qt full-node backports similarly limited to display text,
   documentation, and existing RPC/core behavior unless a separate full security
   review is planned.

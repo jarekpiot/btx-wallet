@@ -2,9 +2,7 @@ diff --git a/src/qt/forms/overviewpage.ui b/src/qt/forms/overviewpage.ui
 index 44061d6..4b1292f 100644
 --- a/src/qt/forms/overviewpage.ui
 +++ b/src/qt/forms/overviewpage.ui
-@@ -441,6 +441,19 @@
-             </item>
-            </layout>
+@@ -443,2 +443,15 @@
            </item>
 +          <item>
 +           <widget class="QLabel" name="emptyTransactionsLabel">
@@ -20,15 +18,11 @@ index 44061d6..4b1292f 100644
 +           </widget>
 +          </item>
            <item>
-            <widget class="TransactionOverviewWidget" name="listTransactions">
-             <property name="styleSheet">
 diff --git a/src/qt/forms/receivecoinsdialog.ui b/src/qt/forms/receivecoinsdialog.ui
 index c9948fe..35beb50 100644
 --- a/src/qt/forms/receivecoinsdialog.ui
 +++ b/src/qt/forms/receivecoinsdialog.ui
-@@ -274,6 +274,19 @@
-         </property>
-        </widget>
+@@ -276,2 +276,15 @@
        </item>
 +      <item>
 +       <widget class="QLabel" name="emptyRequestsLabel">
@@ -44,59 +38,35 @@ index c9948fe..35beb50 100644
 +       </widget>
 +      </item>
        <item>
-        <widget class="QTableView" name="recentRequestsView">
-         <property name="contextMenuPolicy">
 diff --git a/src/qt/overviewpage.cpp b/src/qt/overviewpage.cpp
 index b3bbb9b..bba5f70 100644
 --- a/src/qt/overviewpage.cpp
 +++ b/src/qt/overviewpage.cpp
-@@ -160,6 +160,7 @@ OverviewPage::OverviewPage(const PlatformStyle *platformStyle, QWidget *parent)
-     ui->listTransactions->setIconSize(QSize(DECORATION_SIZE, DECORATION_SIZE));
-     ui->listTransactions->setMinimumHeight(NUM_ITEMS * (DECORATION_SIZE + 2));
+@@ -162,2 +162,3 @@ OverviewPage::OverviewPage(const PlatformStyle *platformStyle, QWidget *parent)
      ui->listTransactions->setAttribute(Qt::WA_MacShowFocusRect, false);
 +    ui->emptyTransactionsLabel->setVisible(false);
  
-     connect(ui->listTransactions, &TransactionOverviewWidget::clicked, this, &OverviewPage::handleTransactionClicked);
- 
-@@ -185,6 +186,7 @@ void OverviewPage::setPrivacy(bool privacy)
-     }
- 
+@@ -187,2 +188,3 @@ void OverviewPage::setPrivacy(bool privacy)
      ui->listTransactions->setVisible(!m_privacy);
 +    ui->emptyTransactionsLabel->setVisible(!m_privacy && filter && filter->rowCount() == 0);
  
-     const QString status_tip = m_privacy ? tr("Privacy mode activated for the Overview tab. To unmask the values, uncheck Settings->Mask values.") : "";
-     setStatusTip(status_tip);
-@@ -315,6 +317,7 @@ void OverviewPage::LimitTransactionRows()
-         for (int i = 0; i < filter->rowCount(); ++i) {
-             ui->listTransactions->setRowHidden(i, i >= NUM_ITEMS);
+@@ -317,2 +319,3 @@ void OverviewPage::LimitTransactionRows()
          }
 +        ui->emptyTransactionsLabel->setVisible(!m_privacy && filter->rowCount() == 0);
      }
- }
- 
 diff --git a/src/qt/receivecoinsdialog.cpp b/src/qt/receivecoinsdialog.cpp
 index 1339f9e..f548c7f 100644
 --- a/src/qt/receivecoinsdialog.cpp
 +++ b/src/qt/receivecoinsdialog.cpp
-@@ -16,6 +16,7 @@
- #include <qt/walletmodel.h>
- 
+@@ -18,2 +18,3 @@
  #include <QAction>
 +#include <QAbstractItemModel>
  #include <QCursor>
- #include <QMessageBox>
- #include <QScrollBar>
-@@ -56,6 +57,7 @@ ReceiveCoinsDialog::ReceiveCoinsDialog(const PlatformStyle *_platformStyle, QWid
-     connect(ui->recentRequestsView, &QWidget::customContextMenuRequested, this, &ReceiveCoinsDialog::showMenu);
- 
+@@ -58,2 +59,3 @@ ReceiveCoinsDialog::ReceiveCoinsDialog(const PlatformStyle *_platformStyle, QWid
      connect(ui->clearButton, &QPushButton::clicked, this, &ReceiveCoinsDialog::clear);
 +    ui->emptyRequestsLabel->setVisible(false);
  }
- 
- void ReceiveCoinsDialog::setModel(WalletModel *_model)
-@@ -75,6 +77,11 @@ void ReceiveCoinsDialog::setModel(WalletModel *_model)
-         tableView->setModel(m_sort_proxy);
-         m_sort_proxy->setSourceModel(_model->getRecentRequestsTableModel());
+@@ -77,2 +79,7 @@ void ReceiveCoinsDialog::setModel(WalletModel *_model)
          tableView->sortByColumn(RecentRequestsTableModel::Date, Qt::DescendingOrder);
 +        updateEmptyRequestsLabel();
 +        connect(m_sort_proxy, &QAbstractItemModel::rowsInserted, this, &ReceiveCoinsDialog::updateEmptyRequestsLabel);
@@ -104,11 +74,7 @@ index 1339f9e..f548c7f 100644
 +        connect(m_sort_proxy, &QAbstractItemModel::modelReset, this, &ReceiveCoinsDialog::updateEmptyRequestsLabel);
 +        connect(m_sort_proxy, &QAbstractItemModel::layoutChanged, this, &ReceiveCoinsDialog::updateEmptyRequestsLabel);
  
-         tableView->setAlternatingRowColors(true);
-         tableView->setSelectionBehavior(QAbstractItemView::SelectRows);
-@@ -123,6 +130,13 @@ void ReceiveCoinsDialog::setModel(WalletModel *_model)
-     }
- }
+@@ -125,2 +132,9 @@ void ReceiveCoinsDialog::setModel(WalletModel *_model)
  
 +void ReceiveCoinsDialog::updateEmptyRequestsLabel()
 +{
@@ -118,35 +84,23 @@ index 1339f9e..f548c7f 100644
 +}
 +
  ReceiveCoinsDialog::~ReceiveCoinsDialog()
- {
-     QSettings settings;
 diff --git a/src/qt/receivecoinsdialog.h b/src/qt/receivecoinsdialog.h
 index 96df6b5..8298b6e 100644
 --- a/src/qt/receivecoinsdialog.h
 +++ b/src/qt/receivecoinsdialog.h
-@@ -65,6 +65,7 @@ private:
-     QModelIndexList SelectedRows();
-     void copyColumnToClipboard(int column);
+@@ -67,2 +67,3 @@ private:
      void ShowReceiveRequestDialogForItem(const QModelIndex& index);
 +    void updateEmptyRequestsLabel();
      virtual void resizeEvent(QResizeEvent *event) override;
- 
- private Q_SLOTS:
 diff --git a/src/qt/transactionview.cpp b/src/qt/transactionview.cpp
 index 2341a19..de8030c 100644
 --- a/src/qt/transactionview.cpp
 +++ b/src/qt/transactionview.cpp
-@@ -23,6 +23,7 @@
- #include <optional>
- 
+@@ -25,2 +25,3 @@
  #include <QApplication>
 +#include <QAbstractItemModel>
  #include <QComboBox>
- #include <QDateTimeEdit>
- #include <QDesktopServices>
-@@ -131,8 +132,13 @@ TransactionView::TransactionView(const PlatformStyle *platformStyle, QWidget *pa
- 
-     transactionView = new QTableView(this);
+@@ -133,4 +134,9 @@ TransactionView::TransactionView(const PlatformStyle *platformStyle, QWidget *pa
      transactionView->setObjectName("transactionView");
 +    emptyLabel = new QLabel(tr("No transactions yet. Once this wallet receives, sends, shields, or mines BTX, activity will appear here."), this);
 +    emptyLabel->setAlignment(Qt::AlignCenter);
@@ -156,11 +110,7 @@ index 2341a19..de8030c 100644
      vlayout->addWidget(createDateRangeWidget());
 +    vlayout->addWidget(emptyLabel);
      vlayout->addWidget(transactionView);
-     vlayout->setSpacing(0);
-     int width = transactionView->verticalScrollBar()->sizeHint().width();
-@@ -201,6 +207,11 @@ void TransactionView::setModel(WalletModel *_model)
-         transactionProxyModel->setSortRole(Qt::EditRole);
-         transactionView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+@@ -203,2 +209,7 @@ void TransactionView::setModel(WalletModel *_model)
          transactionView->setModel(transactionProxyModel);
 +        updateEmptyLabel();
 +        connect(transactionProxyModel, &QAbstractItemModel::rowsInserted, this, &TransactionView::updateEmptyLabel);
@@ -168,11 +118,7 @@ index 2341a19..de8030c 100644
 +        connect(transactionProxyModel, &QAbstractItemModel::modelReset, this, &TransactionView::updateEmptyLabel);
 +        connect(transactionProxyModel, &QAbstractItemModel::layoutChanged, this, &TransactionView::updateEmptyLabel);
  
-         transactionView->setAlternatingRowColors(true);
-         transactionView->setSelectionBehavior(QAbstractItemView::SelectRows);
-@@ -251,6 +262,13 @@ void TransactionView::setModel(WalletModel *_model)
-     }
- }
+@@ -253,2 +264,9 @@ void TransactionView::setModel(WalletModel *_model)
  
 +void TransactionView::updateEmptyLabel()
 +{
@@ -182,44 +128,49 @@ index 2341a19..de8030c 100644
 +}
 +
  void TransactionView::changeEvent(QEvent* e)
- {
-     if (e->type() == QEvent::PaletteChange) {
 diff --git a/src/qt/transactionview.h b/src/qt/transactionview.h
 index 34cc48c..d0d9310 100644
 --- a/src/qt/transactionview.h
 +++ b/src/qt/transactionview.h
-@@ -21,6 +21,7 @@ QT_BEGIN_NAMESPACE
- class QComboBox;
- class QDateTimeEdit;
+@@ -23,2 +23,3 @@ class QDateTimeEdit;
  class QFrame;
 +class QLabel;
  class QLineEdit;
- class QMenu;
- class QModelIndex;
-@@ -68,6 +69,7 @@ private:
-     WalletModel *model{nullptr};
-     TransactionFilterProxy *transactionProxyModel{nullptr};
+@@ -70,2 +71,3 @@ private:
      QTableView *transactionView{nullptr};
 +    QLabel* emptyLabel{nullptr};
  
-     QComboBox *dateWidget;
-     QComboBox *typeWidget;
-@@ -86,6 +88,7 @@ private:
-     QAction *copyLabelAction{nullptr};
- 
+@@ -88,2 +90,3 @@ private:
      QWidget *createDateRangeWidget();
 +    void updateEmptyLabel();
  
-     GUIUtil::TableViewLastColumnResizingFixer *columnResizingFixer{nullptr};
- 
 diff --git a/src/wallet/shielded_rpc.cpp b/src/wallet/shielded_rpc.cpp
-index d8ff5a0..61c6cbc 100644
+index d8ff5a0..4f89bf0 100644
 --- a/src/wallet/shielded_rpc.cpp
 +++ b/src/wallet/shielded_rpc.cpp
-@@ -6407,6 +6407,73 @@ void EnsureBridgeFeeHeadroomOrThrow(const BridgeFeeHeadroomAssessment& assessmen
-     return error.find("bad-shielded-anchor") != std::string::npos;
- }
+@@ -47,2 +47,3 @@
+ #include <tuple>
++#include <utility>
+ #include <vector>
+@@ -6409,2 +6410,162 @@ void EnsureBridgeFeeHeadroomOrThrow(const BridgeFeeHeadroomAssessment& assessmen
  
++void AddUniqueTip(std::vector<std::string>& tips, std::string tip)
++{
++    if (std::find(tips.begin(), tips.end(), tip) == tips.end()) {
++        tips.emplace_back(std::move(tip));
++    }
++}
++
++void PushStringArray(UniValue& out, const std::string& key, const std::vector<std::string>& values)
++{
++    if (values.empty()) return;
++    UniValue array(UniValue::VARR);
++    for (const auto& value : values) {
++        array.push_back(value);
++    }
++    out.pushKV(key, std::move(array));
++}
++
 +[[nodiscard]] std::string ShieldedWhatToTry(const std::string& error)
 +{
 +    const std::string lower = ToLower(error);
@@ -228,30 +179,43 @@ index d8ff5a0..61c6cbc 100644
 +    if (lower.find("insufficient shielded funds") != std::string::npos ||
 +        lower.find("no spendable notes selected") != std::string::npos ||
 +        lower.find("selected input below total needed") != std::string::npos) {
-+        tips.emplace_back("Run getshieldedbalance and z_listunspent to confirm spendable, confirmed shielded notes.");
-+        tips.emplace_back("If the balance is fragmented, run z_mergenotes and retry after the merge confirms.");
-+        tips.emplace_back("Try a smaller shielded send if the wallet has many small notes.");
++        AddUniqueTip(tips, "Run z_getbalance and z_listunspent to confirm spendable, confirmed shielded notes.");
++        AddUniqueTip(tips, "If the balance is fragmented, run z_mergenotes and retry after the merge confirms.");
++        AddUniqueTip(tips, "Try a smaller shielded send if the wallet has many small notes.");
 +    }
 +    if (lower.find("note count exceeds") != std::string::npos ||
 +        lower.find("spend limit") != std::string::npos ||
 +        lower.find("ring size") != std::string::npos ||
 +        lower.find("schedulable") != std::string::npos) {
-+        tips.emplace_back("Consolidate shielded notes with z_mergenotes before retrying this send.");
-+        tips.emplace_back("Split the payment into smaller sends if consolidation is not enough.");
++        AddUniqueTip(tips, "Consolidate shielded notes with z_mergenotes before retrying this send.");
++        AddUniqueTip(tips, "Split the payment into smaller sends if consolidation is not enough.");
 +    }
 +    if (lower.find("fee") != std::string::npos) {
-+        tips.emplace_back("Use automatic fee estimation, or retry with a higher explicit fee.");
++        AddUniqueTip(tips, "Use automatic fee estimation, or retry with a higher explicit fee.");
 +    }
 +    if (lower.find("anchor") != std::string::npos ||
 +        lower.find("sync") != std::string::npos ||
 +        lower.find("anonymity pool") != std::string::npos) {
-+        tips.emplace_back("Wait for the node and wallet to finish syncing, then retry.");
++        AddUniqueTip(tips, "Wait for the node and wallet to finish syncing, then retry.");
++    }
++    if (lower.find("locked") != std::string::npos ||
++        lower.find("unlock") != std::string::npos ||
++        lower.find("encrypted") != std::string::npos) {
++        AddUniqueTip(tips, "Unlock the encrypted wallet only for the time needed to complete the operation.");
++    }
++    if (lower.find("invalid shielded destination") != std::string::npos ||
++        lower.find("invalid address") != std::string::npos) {
++        AddUniqueTip(tips, "Check that the destination is a BTX shielded address and send a small test amount first.");
++    }
++    if (lower.find("amount must be") != std::string::npos ||
++        lower.find("amount + fee") != std::string::npos) {
++        AddUniqueTip(tips, "Check the amount, leave room for fees, and avoid sending the entire shielded balance at once.");
 +    }
 +
 +    if (tips.empty()) {
-+        tips.emplace_back("Check getshieldedbalance and z_listunspent for available confirmed shielded notes.");
-+        tips.emplace_back("If the wallet holds many small notes, run z_mergenotes before retrying.");
-+        tips.emplace_back("Retry after the node is fully synced.");
++        AddUniqueTip(tips, "Check z_getbalance and z_listunspent for available confirmed shielded notes.");
++        AddUniqueTip(tips, "If the wallet holds many small notes, run z_mergenotes before retrying.");
++        AddUniqueTip(tips, "Retry after the node is fully synced.");
 +    }
 +
 +    std::string out = error;
@@ -261,6 +225,48 @@ index d8ff5a0..61c6cbc 100644
 +        out += tip;
 +    }
 +    return out;
++}
++
++[[nodiscard]] std::string ShieldedNoteHealthLabel(size_t spendable_note_count,
++                                                  bool scan_incomplete,
++                                                  bool locked_state_incomplete)
++{
++    if (scan_incomplete || locked_state_incomplete) return "limited_visibility";
++
++    const size_t live_limit = shielded::v2::MAX_LIVE_DIRECT_SMILE_SPENDS;
++    if (spendable_note_count + 2 >= live_limit) return "high_fragmentation";
++    if (spendable_note_count >= live_limit / 2) return "moderate_fragmentation";
++    return "normal";
++}
++
++[[nodiscard]] std::vector<std::string> ShieldedNoteHealthGuidance(size_t spendable_note_count,
++                                                                  bool scan_incomplete,
++                                                                  bool locked_state_incomplete)
++{
++    std::vector<std::string> guidance;
++
++    if (scan_incomplete) {
++        AddUniqueTip(guidance, "Shielded scanning is incomplete. Finish syncing or rescan before relying on this balance.");
++    }
++    if (locked_state_incomplete) {
++        AddUniqueTip(guidance, "Unlock the wallet briefly and refresh if shielded accounting was loaded from locked fallback state.");
++    }
++
++    const size_t live_limit = shielded::v2::MAX_LIVE_DIRECT_SMILE_SPENDS;
++    if (spendable_note_count == 0) {
++        AddUniqueTip(guidance, "No confirmed spendable shielded notes are currently available.");
++    } else if (spendable_note_count + 2 >= live_limit) {
++        AddUniqueTip(guidance, strprintf("High shielded note count: %u spendable notes is close to the live spend limit of %u. Run z_mergenotes before large sends.",
++                                         static_cast<unsigned int>(spendable_note_count),
++                                         static_cast<unsigned int>(live_limit)));
++        AddUniqueTip(guidance, "If consolidation still leaves many notes, split large payments into smaller sends.");
++    } else if (spendable_note_count >= live_limit / 2) {
++        AddUniqueTip(guidance, "Moderate shielded fragmentation: consolidation is recommended before important or large payments.");
++    } else {
++        AddUniqueTip(guidance, "Shielded note count looks manageable for normal sends.");
++    }
++
++    return guidance;
 +}
 +
 +[[nodiscard]] std::vector<std::string> ShieldedComplexityWarnings(size_t shielded_input_count,
@@ -278,6 +284,9 @@ index d8ff5a0..61c6cbc 100644
 +        warnings.emplace_back(strprintf("This shielded send used %u shielded notes, close to the current live limit of %u. If similar sends fail, consolidate notes with z_mergenotes or split the payment.",
 +                        static_cast<unsigned int>(shielded_input_count),
 +                        static_cast<unsigned int>(live_limit)));
++    } else if (shielded_input_count >= live_limit / 2) {
++        warnings.emplace_back(strprintf("This shielded send used %u shielded notes. Consider z_mergenotes before future large sends to reduce fragmentation and retry risk.",
++                        static_cast<unsigned int>(shielded_input_count)));
 +    } else if (shielded_input_count > 1 && shielded_output_count > 1) {
 +        warnings.emplace_back(strprintf("This shielded send used %u shielded notes and created %u shielded outputs. Consolidating fragmented notes can make future sends more reliable.",
 +                        static_cast<unsigned int>(shielded_input_count),
@@ -287,47 +296,76 @@ index d8ff5a0..61c6cbc 100644
 +    return warnings;
 +}
 +
++[[nodiscard]] std::vector<std::string> ShieldedMergeNextSteps(size_t merged_count,
++                                                              size_t remaining_spendable_notes)
++{
++    std::vector<std::string> steps;
++    AddUniqueTip(steps, "Wait for the merge transaction to confirm before retrying a large shielded send.");
++
++    const size_t live_limit = shielded::v2::MAX_LIVE_DIRECT_SMILE_SPENDS;
++    if (remaining_spendable_notes + 2 >= live_limit) {
++        AddUniqueTip(steps, "Many spendable notes remain. Run z_mergenotes again after confirmation, or split the original payment.");
++    } else if (remaining_spendable_notes >= live_limit / 2) {
++        AddUniqueTip(steps, "Some fragmentation remains. Consider another merge before a large or important payment.");
++    } else if (merged_count > 1) {
++        AddUniqueTip(steps, "After confirmation, refresh z_getbalance and retry the original shielded send.");
++    }
++
++    return steps;
++}
++
  struct ShieldedCommitResult
- {
-     bool committed{false};
-@@ -6433,7 +6500,7 @@ struct ShieldedCommitResult
- [[noreturn]] void ThrowShieldedCommitError(const ShieldedCommitResult& result)
- {
+@@ -6435,3 +6596,3 @@ struct ShieldedCommitResult
      const auto code = result.mempool_rejected ? RPC_VERIFY_REJECTED : RPC_WALLET_ERROR;
 -    throw JSONRPCError(code, result.error.empty() ? "Shielded transaction commit failed" : result.error);
 +    throw JSONRPCError(code, ShieldedWhatToTry(result.error.empty() ? "Shielded transaction commit failed" : result.error));
  }
- 
- template <typename BuildFunc, typename CleanupFunc>
-@@ -6556,6 +6623,17 @@ void CommitBridgeTransactionOrThrow(const std::shared_ptr<CWallet>& pwallet,
-         out.pushKV("outputs", static_cast<int64_t>(tx->GetShieldedBundle().GetShieldedOutputCount()));
-     }
+@@ -6558,2 +6719,13 @@ void CommitBridgeTransactionOrThrow(const std::shared_ptr<CWallet>& pwallet,
      out.pushKV("fee", ValueFromAmount(fee));
 +    const auto warnings = ShieldedComplexityWarnings(
 +        tx->GetShieldedBundle().GetShieldedInputCount(),
 +        tx->GetShieldedBundle().GetShieldedOutputCount(),
 +        redact_sensitive);
++    PushStringArray(out, "warnings", warnings);
 +    if (!warnings.empty()) {
-+        UniValue warning_values(UniValue::VARR);
-+        for (const auto& warning : warnings) {
-+            warning_values.push_back(warning);
-+        }
-+        out.pushKV("warnings", std::move(warning_values));
++        PushStringArray(out, "next_steps", {
++            "Wait for this transaction to confirm before retrying another large shielded send.",
++            "Run z_getbalance to review note health; run z_mergenotes if fragmentation remains high.",
++        });
 +    }
      return out;
- }
- 
-@@ -7496,6 +7574,7 @@ RPCHelpMan z_sendtoaddress()
-         RPCExamples{
-             HelpExampleCli("z_sendtoaddress", "\"btxs1...\" 0.5") +
+@@ -7411,2 +7583,6 @@ RPCHelpMan z_getbalance()
+                 {RPCResult::Type::BOOL, "locked_state_incomplete", /*optional=*/true, "True if the wallet was loaded locked from tree-only fallback state and full shielded accounting requires an unlock refresh."},
++                {RPCResult::Type::STR, "note_health", "Simple shielded note health label: normal, moderate_fragmentation, high_fragmentation, or limited_visibility"},
++                {RPCResult::Type::ARR, "guidance", "Actionable note-health guidance", {
++                    {RPCResult::Type::STR, "", "Guidance item"},
++                }},
+             }},
+@@ -7457,2 +7633,10 @@ RPCHelpMan z_getbalance()
+             }
++            out.pushKV("note_health", ShieldedNoteHealthLabel(
++                summary.spendable_note_count,
++                pwallet->m_shielded_wallet->IsScanIncomplete(),
++                locked_state_incomplete));
++            PushStringArray(out, "guidance", ShieldedNoteHealthGuidance(
++                summary.spendable_note_count,
++                pwallet->m_shielded_wallet->IsScanIncomplete(),
++                locked_state_incomplete));
+             return out;
+@@ -7493,2 +7677,8 @@ RPCHelpMan z_sendtoaddress()
+                     {RPCResult::Type::STR_AMOUNT, "fee", "Applied fee"},
++                    {RPCResult::Type::ARR, "warnings", /*optional=*/true, "Advisory warnings for complex or fragmented shielded sends", {
++                        {RPCResult::Type::STR, "", "Warning item"},
++                    }},
++                    {RPCResult::Type::ARR, "next_steps", /*optional=*/true, "Suggested follow-up after a complex shielded send", {
++                        {RPCResult::Type::STR, "", "Next-step item"},
++                    }},
+                 }},
+@@ -7498,2 +7688,3 @@ RPCHelpMan z_sendtoaddress()
              HelpExampleCli("z_sendtoaddress", "\"btxs1...\" 0.5 \"rent\" \"ops\" true 0.0001 true 6 economical") +
 +            HelpExampleCli("z_mergenotes", "") +
              HelpExampleCli("-named z_sendtoaddress", "address=\"btxs1...\" amount=0.5 conf_target=6 estimate_mode=\"economical\"") +
-             HelpExampleCli("-named z_sendtoaddress", "address=\"btxs1...\" amount=0.5 fee=0.0015 conflict_txid=\"<txid>\"")},
-         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue {
-@@ -7661,9 +7740,12 @@ RPCHelpMan z_sendtoaddress()
-                             }
- 
+@@ -7663,5 +7854,8 @@ RPCHelpMan z_sendtoaddress()
                              if (!mtx.has_value()) {
 +                                const std::string base_error = create_error.empty()
 +                                    ? "Failed to create shielded v2 send transaction"
@@ -337,48 +375,37 @@ index d8ff5a0..61c6cbc 100644
 -                                    create_error.empty() ? "Failed to create shielded v2 send transaction" : create_error);
 +                                    ShieldedWhatToTry(base_error));
                              }
- 
-                             CTransactionRef candidate = MakeTransactionRef(std::move(*mtx));
-@@ -7675,7 +7757,7 @@ RPCHelpMan z_sendtoaddress()
-                                 }
-                                 throw JSONRPCError(
+@@ -7677,3 +7871,3 @@ RPCHelpMan z_sendtoaddress()
                                      RPC_WALLET_ERROR,
 -                                    strprintf("Fee too low for transaction size. Required at least %s", FormatMoney(required_fee)));
 +                                    ShieldedWhatToTry(strprintf("Fee too low for transaction size. Required at least %s", FormatMoney(required_fee))));
                              }
- 
-                             const CAmount desired_fee = ComputeShieldedAutoFee(
-@@ -7694,7 +7776,7 @@ RPCHelpMan z_sendtoaddress()
-                         if (!built_tx) {
-                             throw JSONRPCError(
+@@ -7696,3 +7890,3 @@ RPCHelpMan z_sendtoaddress()
                                  RPC_WALLET_ERROR,
 -                                "Failed to build fee-compliant shielded v2 send transaction");
 +                                ShieldedWhatToTry("Failed to build fee-compliant shielded v2 send transaction"));
                          }
-                     } catch (...) {
-                         // Any throw from the loop or the !built_tx check above must
-@@ -7836,7 +7918,9 @@ RPCHelpMan z_sendmany()
-         "direct deposit path.\n"
-         "After the post-61000 privacy fork, mixed direct sends to transparent recipients are disabled;\n"
+@@ -7838,3 +8032,5 @@ RPCHelpMan z_sendmany()
          "use the bridge unshield flow for transparent settlement instead. Transparent-input fallback\n"
 -        "is also disabled on this RPC after the fork.\n",
 +        "is also disabled on this RPC after the fork.\n"
 +        "If a large or fragmented shielded send fails, inspect note health with z_listunspent,\n"
 +        "consolidate with z_mergenotes, or split the payment into smaller sends.\n",
          {
-             {"amounts", RPCArg::Type::ARR, RPCArg::Optional::NO, "Recipients",
-                 {
-@@ -7872,6 +7956,7 @@ RPCHelpMan z_sendmany()
+@@ -7871,2 +8067,8 @@ RPCHelpMan z_sendmany()
+                 {RPCResult::Type::STR_AMOUNT, "fee", "Applied fee"},
++                {RPCResult::Type::ARR, "warnings", /*optional=*/true, "Advisory warnings for complex or fragmented shielded sends", {
++                    {RPCResult::Type::STR, "", "Warning item"},
++                }},
++                {RPCResult::Type::ARR, "next_steps", /*optional=*/true, "Suggested follow-up after a complex shielded send", {
++                    {RPCResult::Type::STR, "", "Next-step item"},
++                }},
              }},
-         RPCExamples{
+@@ -7874,2 +8076,3 @@ RPCHelpMan z_sendmany()
              HelpExampleCli("z_sendmany", "'[{\"address\":\"btxs1...\",\"amount\":1.0}]'") +
 +            HelpExampleCli("z_mergenotes", "") +
              HelpExampleCli("z_sendmany", "'[{\"address\":\"btxs1...\",\"amount\":1.0},{\"address\":\"btx1...\",\"amount\":0.5}]' 0.0002 '[0]' 6 economical") +
-             HelpExampleCli("-named z_sendmany", "amounts='[{\"address\":\"btxs1...\",\"amount\":1.0}]' fee=0.0015 conflict_txid=\"<txid>\"")},
-         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue {
-@@ -8091,9 +8176,12 @@ RPCHelpMan z_sendmany()
-                                 }
-                             }
+@@ -8093,5 +8296,8 @@ RPCHelpMan z_sendmany()
                              if (!mtx.has_value()) {
 +                                const std::string base_error = create_error.empty()
 +                                    ? "Failed to create shielded transaction"
@@ -388,34 +415,50 @@ index d8ff5a0..61c6cbc 100644
 -                                    create_error.empty() ? "Failed to create shielded transaction" : create_error);
 +                                    ShieldedWhatToTry(base_error));
                              }
- 
-                             CTransactionRef candidate = MakeTransactionRef(std::move(*mtx));
-@@ -8105,7 +8193,7 @@ RPCHelpMan z_sendmany()
-                                 }
-                                 throw JSONRPCError(
+@@ -8107,3 +8313,3 @@ RPCHelpMan z_sendmany()
                                      RPC_WALLET_ERROR,
 -                                    strprintf("Fee too low for transaction size. Required at least %s", FormatMoney(required_fee)));
 +                                    ShieldedWhatToTry(strprintf("Fee too low for transaction size. Required at least %s", FormatMoney(required_fee))));
                              }
- 
-                             const CAmount desired_fee = ComputeShieldedAutoFee(
-@@ -8121,7 +8209,7 @@ RPCHelpMan z_sendmany()
-                             fee = desired_fee;
-                         }
+@@ -8123,3 +8329,3 @@ RPCHelpMan z_sendmany()
                          if (!built_tx) {
 -                            throw JSONRPCError(RPC_WALLET_ERROR, "Failed to build fee-compliant shielded transaction");
 +                            throw JSONRPCError(RPC_WALLET_ERROR, ShieldedWhatToTry("Failed to build fee-compliant shielded transaction"));
                          }
-                     } catch (...) {
-                         release_reservations();
-@@ -8895,7 +8983,9 @@ RPCHelpMan z_mergenotes()
-         "\nMerge several small shielded notes into one.\n"
-         "The merge path stays inside the live direct-spend envelope,\n"
+@@ -8897,3 +9103,5 @@ RPCHelpMan z_mergenotes()
          "so repeated calls may still be required when a wallet holds many small notes.\n"
 -        "This is the supported wallet-level consolidation path for high-note-count miner wallets.\n",
 +        "This is the supported wallet-level consolidation path for high-note-count miner wallets.\n"
 +        "Use this when z_sendtoaddress or z_sendmany reports note-count, ring-size, or fragmentation errors.\n"
 +        "After the merge confirms, retry the original shielded send.\n",
          {
-             {"max_notes", RPCArg::Type::NUM, RPCArg::Default{10}, "Maximum notes requested for merge (the current live merge path uses up to 8 notes per tx)"},
-             {"fee", RPCArg::Type::AMOUNT, RPCArg::Default{FormatMoney(10000)}, "Fee"},
+@@ -8908,2 +9116,5 @@ RPCHelpMan z_mergenotes()
+                 {RPCResult::Type::NUM, "remaining_spendable_notes", "Remaining confirmed spendable note count after reserving the merge inputs"},
++                {RPCResult::Type::ARR, "next_steps", "Suggested follow-up after note consolidation", {
++                    {RPCResult::Type::STR, "", "Next-step item"},
++                }},
+             }},
+@@ -8967,5 +9178,8 @@ RPCHelpMan z_mergenotes()
+                             if (!mtx.has_value()) {
++                                const std::string base_error = create_error.empty()
++                                    ? "No merge candidate notes found"
++                                    : create_error;
+                                 throw JSONRPCError(
+                                     RPC_WALLET_ERROR,
+-                                    create_error.empty() ? "No merge candidate notes found" : create_error);
++                                    ShieldedWhatToTry(base_error));
+                             }
+@@ -8983,3 +9197,3 @@ RPCHelpMan z_mergenotes()
+                                     RPC_WALLET_ERROR,
+-                                    strprintf("Fee too low for transaction size. Required at least %s", FormatMoney(required_fee)));
++                                    ShieldedWhatToTry(strprintf("Fee too low for transaction size. Required at least %s", FormatMoney(required_fee))));
+                             }
+@@ -8988,3 +9202,3 @@ RPCHelpMan z_mergenotes()
+                         if (!built_tx) {
+-                            throw JSONRPCError(RPC_WALLET_ERROR, "Failed to create fee-compliant merge transaction");
++                            throw JSONRPCError(RPC_WALLET_ERROR, ShieldedWhatToTry("Failed to create fee-compliant merge transaction"));
+                         }
+@@ -9007,2 +9221,3 @@ RPCHelpMan z_mergenotes()
+             out.pushKV("remaining_spendable_notes", static_cast<int64_t>(remaining_spendable_notes));
++            PushStringArray(out, "next_steps", ShieldedMergeNextSteps(merged_count, remaining_spendable_notes));
+             return out;
