@@ -68,14 +68,13 @@ the relevant release checklist.
 
 ## Scripted E2E Smoke Tests
 
-- [ ] Review `tests/e2e/light-client/shielded-send-test.sh` configuration.
-- [ ] Run `tests/e2e/light-client/shielded-send-test.sh` against a local test node.
-- [ ] Review `tests/e2e/light-client/consolidation-test.sh` configuration.
-- [ ] Run `tests/e2e/light-client/consolidation-test.sh` against a wallet with multiple shielded notes.
-- [ ] Review `tests/e2e/full-node/shielded-send-test.sh` configuration.
-- [ ] Run `tests/e2e/full-node/shielded-send-test.sh` against a local full-node wallet.
-- [ ] Review `tests/e2e/full-node/rpc-console-test.sh` configuration.
-- [ ] Run `tests/e2e/full-node/rpc-console-test.sh` to verify shielded RPC guidance surfaces are available.
+- [ ] Review `tests/e2e/common.sh` and local environment variables.
+- [ ] Run `tests/e2e/light-client/create-wallet.sh` against a local test node.
+- [ ] Run `tests/e2e/light-client/shielded-send.sh` against a funded local test wallet.
+- [ ] Run `tests/e2e/light-client/consolidation.sh` against a wallet with multiple shielded notes.
+- [ ] Run `tests/e2e/light-client/error-handling.sh` for invalid address, insufficient funds, and locked-wallet cases.
+- [ ] Run `tests/e2e/full-node/shielded-send.sh` against a local full-node wallet.
+- [ ] Run `tests/e2e/full-node/rpc-console.sh` to verify shielded RPC guidance surfaces are available.
 - [ ] Attach command output, txids, and any failures to the release checklist.
 
 ## Release Sign-Off
