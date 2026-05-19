@@ -213,10 +213,10 @@ index 34cc48c..d0d9310 100644
      GUIUtil::TableViewLastColumnResizingFixer *columnResizingFixer{nullptr};
  
 diff --git a/src/wallet/shielded_rpc.cpp b/src/wallet/shielded_rpc.cpp
-index d8ff5a0..e39ef37 100644
+index d8ff5a0..61c6cbc 100644
 --- a/src/wallet/shielded_rpc.cpp
 +++ b/src/wallet/shielded_rpc.cpp
-@@ -6407,6 +6407,75 @@ void EnsureBridgeFeeHeadroomOrThrow(const BridgeFeeHeadroomAssessment& assessmen
+@@ -6407,6 +6407,73 @@ void EnsureBridgeFeeHeadroomOrThrow(const BridgeFeeHeadroomAssessment& assessmen
      return error.find("bad-shielded-anchor") != std::string::npos;
  }
  
@@ -268,20 +268,18 @@ index d8ff5a0..e39ef37 100644
 +                                                                  bool redact_sensitive)
 +{
 +    std::vector<std::string> warnings;
++    if (redact_sensitive) return warnings;
++
 +    static constexpr size_t WARN_AT_LIVE_SPEND_LIMIT_HEADROOM{2};
 +    const size_t live_limit = shielded::v2::MAX_LIVE_DIRECT_SMILE_SPENDS;
 +    const bool near_live_limit = shielded_input_count + WARN_AT_LIVE_SPEND_LIMIT_HEADROOM >= live_limit;
 +
 +    if (near_live_limit) {
-+        warnings.emplace_back(redact_sensitive
-+            ? "This shielded send is close to the current live note-spend limit. If similar sends fail, consolidate notes with z_mergenotes or split the payment."
-+            : strprintf("This shielded send used %u shielded notes, close to the current live limit of %u. If similar sends fail, consolidate notes with z_mergenotes or split the payment.",
++        warnings.emplace_back(strprintf("This shielded send used %u shielded notes, close to the current live limit of %u. If similar sends fail, consolidate notes with z_mergenotes or split the payment.",
 +                        static_cast<unsigned int>(shielded_input_count),
 +                        static_cast<unsigned int>(live_limit)));
 +    } else if (shielded_input_count > 1 && shielded_output_count > 1) {
-+        warnings.emplace_back(redact_sensitive
-+            ? "This shielded send used multiple notes and created change. Consolidating fragmented notes can make future sends more reliable."
-+            : strprintf("This shielded send used %u shielded notes and created %u shielded outputs. Consolidating fragmented notes can make future sends more reliable.",
++        warnings.emplace_back(strprintf("This shielded send used %u shielded notes and created %u shielded outputs. Consolidating fragmented notes can make future sends more reliable.",
 +                        static_cast<unsigned int>(shielded_input_count),
 +                        static_cast<unsigned int>(shielded_output_count)));
 +    }
@@ -292,7 +290,7 @@ index d8ff5a0..e39ef37 100644
  struct ShieldedCommitResult
  {
      bool committed{false};
-@@ -6433,7 +6502,7 @@ struct ShieldedCommitResult
+@@ -6433,7 +6500,7 @@ struct ShieldedCommitResult
  [[noreturn]] void ThrowShieldedCommitError(const ShieldedCommitResult& result)
  {
      const auto code = result.mempool_rejected ? RPC_VERIFY_REJECTED : RPC_WALLET_ERROR;
@@ -301,7 +299,7 @@ index d8ff5a0..e39ef37 100644
  }
  
  template <typename BuildFunc, typename CleanupFunc>
-@@ -6556,6 +6625,17 @@ void CommitBridgeTransactionOrThrow(const std::shared_ptr<CWallet>& pwallet,
+@@ -6556,6 +6623,17 @@ void CommitBridgeTransactionOrThrow(const std::shared_ptr<CWallet>& pwallet,
          out.pushKV("outputs", static_cast<int64_t>(tx->GetShieldedBundle().GetShieldedOutputCount()));
      }
      out.pushKV("fee", ValueFromAmount(fee));
@@ -319,7 +317,7 @@ index d8ff5a0..e39ef37 100644
      return out;
  }
  
-@@ -7496,6 +7576,7 @@ RPCHelpMan z_sendtoaddress()
+@@ -7496,6 +7574,7 @@ RPCHelpMan z_sendtoaddress()
          RPCExamples{
              HelpExampleCli("z_sendtoaddress", "\"btxs1...\" 0.5") +
              HelpExampleCli("z_sendtoaddress", "\"btxs1...\" 0.5 \"rent\" \"ops\" true 0.0001 true 6 economical") +
@@ -327,7 +325,7 @@ index d8ff5a0..e39ef37 100644
              HelpExampleCli("-named z_sendtoaddress", "address=\"btxs1...\" amount=0.5 conf_target=6 estimate_mode=\"economical\"") +
              HelpExampleCli("-named z_sendtoaddress", "address=\"btxs1...\" amount=0.5 fee=0.0015 conflict_txid=\"<txid>\"")},
          [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue {
-@@ -7661,9 +7742,12 @@ RPCHelpMan z_sendtoaddress()
+@@ -7661,9 +7740,12 @@ RPCHelpMan z_sendtoaddress()
                              }
  
                              if (!mtx.has_value()) {
@@ -341,7 +339,7 @@ index d8ff5a0..e39ef37 100644
                              }
  
                              CTransactionRef candidate = MakeTransactionRef(std::move(*mtx));
-@@ -7675,7 +7759,7 @@ RPCHelpMan z_sendtoaddress()
+@@ -7675,7 +7757,7 @@ RPCHelpMan z_sendtoaddress()
                                  }
                                  throw JSONRPCError(
                                      RPC_WALLET_ERROR,
@@ -350,7 +348,7 @@ index d8ff5a0..e39ef37 100644
                              }
  
                              const CAmount desired_fee = ComputeShieldedAutoFee(
-@@ -7694,7 +7778,7 @@ RPCHelpMan z_sendtoaddress()
+@@ -7694,7 +7776,7 @@ RPCHelpMan z_sendtoaddress()
                          if (!built_tx) {
                              throw JSONRPCError(
                                  RPC_WALLET_ERROR,
@@ -359,7 +357,7 @@ index d8ff5a0..e39ef37 100644
                          }
                      } catch (...) {
                          // Any throw from the loop or the !built_tx check above must
-@@ -7836,7 +7920,9 @@ RPCHelpMan z_sendmany()
+@@ -7836,7 +7918,9 @@ RPCHelpMan z_sendmany()
          "direct deposit path.\n"
          "After the post-61000 privacy fork, mixed direct sends to transparent recipients are disabled;\n"
          "use the bridge unshield flow for transparent settlement instead. Transparent-input fallback\n"
@@ -370,7 +368,7 @@ index d8ff5a0..e39ef37 100644
          {
              {"amounts", RPCArg::Type::ARR, RPCArg::Optional::NO, "Recipients",
                  {
-@@ -7872,6 +7958,7 @@ RPCHelpMan z_sendmany()
+@@ -7872,6 +7956,7 @@ RPCHelpMan z_sendmany()
              }},
          RPCExamples{
              HelpExampleCli("z_sendmany", "'[{\"address\":\"btxs1...\",\"amount\":1.0}]'") +
@@ -378,7 +376,7 @@ index d8ff5a0..e39ef37 100644
              HelpExampleCli("z_sendmany", "'[{\"address\":\"btxs1...\",\"amount\":1.0},{\"address\":\"btx1...\",\"amount\":0.5}]' 0.0002 '[0]' 6 economical") +
              HelpExampleCli("-named z_sendmany", "amounts='[{\"address\":\"btxs1...\",\"amount\":1.0}]' fee=0.0015 conflict_txid=\"<txid>\"")},
          [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue {
-@@ -8091,9 +8178,12 @@ RPCHelpMan z_sendmany()
+@@ -8091,9 +8176,12 @@ RPCHelpMan z_sendmany()
                                  }
                              }
                              if (!mtx.has_value()) {
@@ -392,7 +390,7 @@ index d8ff5a0..e39ef37 100644
                              }
  
                              CTransactionRef candidate = MakeTransactionRef(std::move(*mtx));
-@@ -8105,7 +8195,7 @@ RPCHelpMan z_sendmany()
+@@ -8105,7 +8193,7 @@ RPCHelpMan z_sendmany()
                                  }
                                  throw JSONRPCError(
                                      RPC_WALLET_ERROR,
@@ -401,7 +399,7 @@ index d8ff5a0..e39ef37 100644
                              }
  
                              const CAmount desired_fee = ComputeShieldedAutoFee(
-@@ -8121,7 +8211,7 @@ RPCHelpMan z_sendmany()
+@@ -8121,7 +8209,7 @@ RPCHelpMan z_sendmany()
                              fee = desired_fee;
                          }
                          if (!built_tx) {
@@ -410,7 +408,7 @@ index d8ff5a0..e39ef37 100644
                          }
                      } catch (...) {
                          release_reservations();
-@@ -8895,7 +8985,9 @@ RPCHelpMan z_mergenotes()
+@@ -8895,7 +8983,9 @@ RPCHelpMan z_mergenotes()
          "\nMerge several small shielded notes into one.\n"
          "The merge path stays inside the live direct-spend envelope,\n"
          "so repeated calls may still be required when a wallet holds many small notes.\n"
