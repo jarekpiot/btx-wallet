@@ -1,56 +1,81 @@
 # BTX Wallet
 
-Official desktop wallets for **BTX** (the post-quantum blockchain with native
-shielded transactions).
+Official desktop wallets for **BTX**: a post-quantum blockchain with native
+SMILE v2 shielded transactions.
 
 This repository contains two desktop wallet options:
 
-- **BTX Wallet (Full Node)** - Phase 0
-- **BTX Wallet Light** - Phase 1, recommended for most users
+- **BTX Wallet Light** - Phase 1, recommended for most users.
+- **BTX Wallet (Full Node)** - Phase 0, for users who want to run and validate
+  their own full node.
 
-Security remains the default: no telemetry, signed releases, verifiable
-SHA256 sums, and no wallet-layer cryptographic code in this repository.
+Security remains the default: no telemetry, no phone-home services, signed
+releases, verifiable SHA256 sums, and no wallet-layer cryptographic code in this
+repository.
 
-## Two Desktop Wallets
+## Downloads
 
-| Wallet | Type | GUI | Runs Full Node | Recommended For | Release |
-|---|---|---|---|---|---|
-| **BTX Wallet** | Full Node Client | Qt | Yes | Users who want to run and validate their own node | [v0.1.0-qt](https://github.com/jarekpiot/btx-wallet/releases/tag/v0.1.0-qt) |
-| **BTX Wallet Light** | Light Client | Tauri | No | Most users who want a fast, simple desktop wallet | [v0.2.0-light](https://github.com/jarekpiot/btx-wallet/releases/tag/v0.2.0-light) |
+| Wallet | Release | Best For |
+|---|---|---|
+| **BTX Wallet Light** | [v0.2.0-light](https://github.com/jarekpiot/btx-wallet/releases/tag/v0.2.0-light) | Most users who want a fast, simple desktop wallet |
+| **BTX Wallet (Full Node)** | [v0.1.0-qt](https://github.com/jarekpiot/btx-wallet/releases/tag/v0.1.0-qt) | Users who want maximum trustlessness and local validation |
 
-### BTX Wallet (Full Node) - Phase 0
+Download the wallet for your operating system from the release page, then verify
+the artifact before opening it. See [Verify Downloads](#verify-downloads).
 
-- Official `btx-qt` GUI from the audited `btxchain/btx` core.
-- Runs a full BTX node and wallet together.
-- Maximum trustlessness.
-- Includes pruning defaults for normal gaming PCs.
-- Includes a light usability backport for clearer shielded RPC guidance,
-  consolidation suggestions, and Qt empty states.
-- Best suited for users who want to validate the full chain themselves.
+## Which Wallet Should I Use?
 
-### BTX Wallet Light - Phase 1 (Recommended)
+Use **BTX Wallet Light** if you want the easiest desktop experience. It launches
+quickly, does not require a full chain sync before opening, and connects to a
+local or trusted remote `btxd` node through JSON-RPC. This is the recommended
+choice for most BTC, NEAR, and ZEC users who want a simple native wallet with
+transparent and SMILE v2 shielded transactions.
 
-- Modern Tauri desktop application.
-- Lightweight and fast to start.
-- Connects to a local or trusted remote `btxd` node.
-- Designed to be simple, secure, and reliable for everyday use.
-- Supports transparent and native **SMILE v2** shielded transactions.
-- Includes shielded note health warnings, send-readiness guidance, and basic
-  consolidation support for larger or more complex shielded sends.
+Use **BTX Wallet (Full Node)** if you want to run and validate the chain
+yourself. It uses the official `btx-qt` GUI from the audited `btxchain/btx`
+core, includes pruning defaults for normal gaming PCs, and provides the most
+trustless setup. It is heavier than the light client because it runs a full node
+and wallet together.
 
-## Quick Start (Light Client)
+| Wallet | Type | GUI | Runs Full Node | Notes |
+|---|---|---|---|---|
+| **BTX Wallet Light** | Light client | Tauri | No | Fast startup, simple UX, connects to local or trusted remote `btxd` |
+| **BTX Wallet (Full Node)** | Full node client | Qt | Yes | Maximum local validation, pruned defaults, direct `btx-qt` experience |
+
+## Getting Started: Light Client
+
+Recommended setup: run your own local `btxd` node and connect the light client
+to it. This keeps the wallet experience simple while reducing trust in public
+RPC infrastructure.
 
 1. Download **BTX Wallet Light** from the
    [v0.2.0-light release](https://github.com/jarekpiot/btx-wallet/releases/tag/v0.2.0-light).
-2. Install and launch the app.
-3. Go to **Settings**.
-4. Connect to your node. Recommended: run your own local `btxd`.
-5. Create or restore an encrypted descriptor wallet.
-6. Start with a small receive and send test.
-7. Use shielded mode for private SMILE v2 transactions.
+2. Verify the download using `SHA256SUMS` and GPG signatures.
+3. Install and launch the app.
+4. Open **Settings**.
+5. Connect to your node. For a local node, use `http://127.0.0.1:18443`.
+6. Create or restore an encrypted descriptor wallet.
+7. Start with a small receive and send test.
+8. Use shielded mode for private SMILE v2 transactions.
 
-Tip: for the best experience, run your own `btxd` node locally and connect the
-light client to `http://127.0.0.1:18443`.
+BTX Wallet Light includes shielded note-health warnings, send-readiness
+guidance, clearer error messages, and basic consolidation support for larger or
+more complex shielded sends.
+
+## Full Node Wallet
+
+BTX Wallet (Full Node) is the Phase 0 desktop wallet path. It packages the
+official `btx-qt` GUI from `btxchain/btx` with reproducible build metadata,
+SHA256 sums, GPG signatures, and pruning defaults.
+
+Use the full node wallet when you want to:
+
+- validate the BTX chain locally;
+- avoid relying on a remote node for wallet state;
+- run `btx-qt` and wallet functionality together;
+- use the hardened Phase 0 release path.
+
+For first-run instructions, see [docs/FIRST-RUN.md](docs/FIRST-RUN.md).
 
 ## Verify Downloads
 
@@ -74,8 +99,8 @@ sha256sum -c SHA256SUMS
 gpg --verify <artifact>.asc <artifact>
 ```
 
-On macOS, use `shasum -a 256 -c SHA256SUMS` if `sha256sum` is unavailable.
-On Windows, use Git Bash, WSL, or PowerShell with GPG installed.
+On macOS, use `shasum -a 256 -c SHA256SUMS` if `sha256sum` is unavailable. On
+Windows, use Git Bash, WSL, or PowerShell with GPG installed.
 
 ## Security
 
@@ -84,7 +109,8 @@ Both wallets have gone through security reviews:
 - **Phase 0 (`btx-qt`)**: full adversarial security and hardening audit
   completed.
 - **Phase 1 (Light Client)**: focused desktop security review and hardening pass
-  completed, including Phase 1.5 usability and reliability improvements.
+  completed, including Phase 1.5 and Phase 2 usability/reliability
+  improvements.
 
 Key points:
 
@@ -96,20 +122,21 @@ Key points:
   audited BTX core.
 - Sensitive operations are delegated to official `btxchain/btx`.
 
-See [AUDIT-CHECKLIST.md](AUDIT-CHECKLIST.md),
-[RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md),
-[DESKTOP-RELEASE-CHECKLIST.md](DESKTOP-RELEASE-CHECKLIST.md), and
-[SECURITY.md](SECURITY.md) for details.
+See [SECURITY.md](SECURITY.md), [AUDIT-CHECKLIST.md](AUDIT-CHECKLIST.md),
+[RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md), and
+[DESKTOP-RELEASE-CHECKLIST.md](DESKTOP-RELEASE-CHECKLIST.md) for details.
 
-## Current Limitations
+## Known Limitations
 
-- Large or complex shielded sends can still be affected by note limits, which
-  is common in shielded systems. BTX Wallet Light includes warnings, readiness
-  guidance, and basic consolidation support, with further improvements planned.
-- Public RPC infrastructure for BTX is still limited. Running your own node is
-  currently the most reliable option.
-- Windows Authenticode signing and Apple notarization are not yet implemented;
-  release artifacts are GPG-signed and SHA256-verified.
+- Large or complex shielded sends can still be affected by note limits and
+  fragmentation, which is common in shielded systems. BTX Wallet Light includes
+  warnings, readiness guidance, clearer errors, and basic consolidation support.
+  The full node wallet includes lighter shielded RPC guidance and consolidation
+  suggestions.
+- Public RPC infrastructure for BTX is still limited. Running your own local
+  `btxd` node is currently the most reliable setup.
+- Windows Authenticode signing and Apple notarization are not yet implemented.
+  Release artifacts are GPG-signed and SHA256-verified.
 
 ## Development
 
@@ -117,7 +144,7 @@ See [AUDIT-CHECKLIST.md](AUDIT-CHECKLIST.md),
 - Phase 1 Tauri light client lives in the [desktop](desktop) folder.
 - Security checklists and verification scripts are included in the repository.
 
-### Building the Light Client Locally
+### Build the Light Client Locally
 
 ```bash
 cd desktop
@@ -125,7 +152,7 @@ npm install
 npm run tauri:build
 ```
 
-### Building the Full Node Wallet Locally
+### Build the Full Node Wallet Locally
 
 ```bash
 scripts/build-qt-wallet.sh
@@ -133,7 +160,9 @@ scripts/sign-release-artifacts.sh artifacts
 scripts/verify-release-artifacts.sh artifacts
 ```
 
-See [docs/FIRST-RUN.md](docs/FIRST-RUN.md),
-[docs/PHASE1-LIGHT-CLIENT.md](docs/PHASE1-LIGHT-CLIENT.md), and
-[docs/PHASE0-QT-USABILITY-BACKPORT.md](docs/PHASE0-QT-USABILITY-BACKPORT.md),
-and [docs/REPRODUCIBLE-BUILDS.md](docs/REPRODUCIBLE-BUILDS.md) for more detail.
+Additional docs:
+
+- [docs/FIRST-RUN.md](docs/FIRST-RUN.md)
+- [docs/PHASE1-LIGHT-CLIENT.md](docs/PHASE1-LIGHT-CLIENT.md)
+- [docs/PHASE0-QT-USABILITY-BACKPORT.md](docs/PHASE0-QT-USABILITY-BACKPORT.md)
+- [docs/REPRODUCIBLE-BUILDS.md](docs/REPRODUCIBLE-BUILDS.md)
