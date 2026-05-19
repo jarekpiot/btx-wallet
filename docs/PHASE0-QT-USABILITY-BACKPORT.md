@@ -33,6 +33,12 @@ official `btx-qt` full node wallet through
 - Clarifies wallet unlock copy so users understand the wallet should relock
   automatically after the requested operation when possible.
 - Cleans up BTX-specific navigation, address-book, receive, and send labels.
+- Adds shielded RPC console guidance for `z_sendtoaddress`, `z_sendmany`,
+  `z_getbalance`, `z_mergenotes`, `z_listunspent`, viewing-key operations, and
+  shielded recovery/disclosure commands.
+- Hides shielded-send, viewing-key, note-merge, recovery, and disclosure
+  commands from RPC console history to reduce accidental local exposure of
+  shielded recipient, amount, viewing-key, and recovery data.
 
 ## Security Boundary
 
@@ -77,6 +83,18 @@ fresh local BTX worktree: git apply appleclang patch + qt usability patch + git 
 repository diff --check: passed
 targeted no-new-crypto source scan: only user-facing encrypted-wallet guidance and existing SMILE note-limit constants matched
 manual source review: new Qt changes are limited to static labels, status tips, wait-cursor/button feedback, and guidance strings
+```
+
+Additional shielded RPC-console guidance verification on 2026-05-19:
+
+```text
+fresh local BTX worktree: git apply --check qt-shielded-usability-backport.patch passed
+fresh local BTX worktree: git apply qt-shielded-usability-backport.patch + git diff --check passed
+fresh local BTX worktree: git apply AppleClang patch after Qt usability patch + git diff --check passed
+fresh local BTX worktree: git apply AppleClang patch before Qt usability patch + git diff --check passed
+repository diff --check: passed
+targeted no-new-crypto source scan: matches were limited to existing encryptwallet filtering, static encrypted-wallet guidance, and existing SMILE note-limit constants
+manual source review: RPC-console changes only affect command-history redaction and static guidance messages before command execution
 ```
 
 Note: the repository `scripts/verify-no-new-crypto.sh` helper is Bash-based.
@@ -125,6 +143,11 @@ Findings:
   existing Qt translation/message paths.
 - [x] Unlock-dialog wording is static guidance only. It does not change
   passphrase handling, wallet encryption, or relock behavior.
+- [x] RPC-console shielded guidance is static advisory text shown before the
+  command runs. It does not block, rewrite, or alter RPC execution.
+- [x] Expanded RPC-console history filtering reuses the existing sensitive
+  command redaction path. It reduces retained local command history and does not
+  modify command execution or command results.
 
 Review proof:
 
@@ -138,6 +161,10 @@ fresh local worktree apply check for polish patch: passed
 fresh local worktree git diff --check after polish patch: passed
 fresh local worktree git diff --check after AppleClang + Qt usability patches: passed
 targeted no-new-crypto source scan: no new cryptographic implementation or transaction-building path found
+fresh local worktree apply check for RPC-console guidance patch: passed
+fresh local worktree git diff --check after RPC-console guidance patch: passed
+fresh local worktree git diff --check after AppleClang + Qt usability patches including RPC-console guidance: passed
+fresh local worktree git diff --check after Qt usability + AppleClang patches in release order: passed
 ```
 
 Residual recommendations:
